@@ -1,0 +1,31 @@
+libcxxabi
+=========
+
+This library implements the Code Sourcery C++ ABI, as documented here:
+
+http://www.codesourcery.com/public/cxx-abi/abi.html
+
+It is intended to sit below an STL implementation, and provide features required by the compiler for implementation of the C++ language.
+
+Current Status
+--------------
+
+At present, the library implements the following parts of the ABI specification:
+
+- RTTI classes and support for the dynamic_cast<> operator.
+- Exception handling.
+- Thread-safe initializers.
+
+Exception handling requires the assistance of a stack-unwinding library
+implementing the low-level parts of the ABI.  Either libgcc_s or libunwind
+should work for this purpose.
+
+The library depends on various libc features, but does not depend on any C++
+features not implemented purely in the compiler or in the library itself.
+
+Supported Platforms
+-------------------
+
+This code was initially developed on FreeBSD/x86, and has also been tested on FreeBSD/x86-64.  It should work on other platforms that use the Code Sourcery ABI, for example Itanium, however this is untested.
+
+Currently, this library has no support for ARM EABI (or any other ARM ABI).
