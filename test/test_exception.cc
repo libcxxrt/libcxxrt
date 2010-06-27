@@ -1,0 +1,146 @@
+#include "test.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+
+void log(void* ignored)
+{
+	printf("Cleanup called on %s\n", *(char**)ignored);
+}
+#define CLEANUP\
+	__attribute__((cleanup(log))) __attribute__((unused))\
+		const char *f = __func__;
+
+/**
+ * Simple struct to test throwing.
+ */
+struct foo
+{
+	int i;
+};
+
+struct bar : foo
+{
+	float bar;
+};
+
+
+static int cleanup_count;
+/**
+ * Simple structure declared with a destructor.  Destroying this object will
+ * increment cleanup count.  The destructor should be called automatically if
+ * an instance of cl is allocated with automatic storage.
+ */
+struct cl
+{
+	int i;
+	~cl() { fprintf(stderr, "cl destroyed: %d\n", i); cleanup_count++; }
+};
+/**
+ * Test that one cl was destroyed when running the argument.
+ */
+#define TEST_CLEANUP(x) do {\
+		int cleanups = cleanup_count;\
+		{ x; }\
+		TEST(cleanup_count == cleanups+1, "Cleanup ran correctly");\
+	} while(0)
+
+int inner(int i)
+{
+	CLEANUP
+	switch (i)
+	{
+		case 0: throw (int)1.0;
+		case 1: throw (float)1.0;
+		case 2: throw (int64_t)1;
+		case 3: { foo f = {2} ; throw f; }
+		case 4: { bar f; f.i = 2 ; f.bar=1 ; throw f; }
+	}
+	return -1;
+}
+
+int outer(int i) throw(float, int, foo)
+{
+	//CLEANUP
+	inner(i);
+	return 1;
+}
+
+static void test_catch(int s) 
+{
+	cl c;
+	c.i = 12;
+	fprintf(stderr, "Entering try\n");
+	try
+	{
+		outer(s);
+	}
+	catch(int i)
+	{
+		fprintf(stderr, "Caught int %d!\n", i);
+		TEST(s == 0 && i == 1, "Caught int");
+		return;
+	}
+	catch (float f)
+	{
+		fprintf(stderr, "Caught float %f!\n", f);
+		TEST(s == 1 && f == 1, "Caught float");
+		return;
+	}
+	catch (foo f)
+	{
+		fprintf(stderr, "Caught struct {%d}!\n", f.i);
+		TEST((s == 3 || s == 4) && f.i == 2, "Caught struct");
+		return;
+	}
+	//abort();
+	TEST(0, "Unreachable line reached");
+}
+
+void test_nested1(void)
+{
+	CLEANUP;
+	cl c;
+	c.i = 123;
+	try 
+	{
+		outer(0);
+	}
+	catch (int a)
+	{
+		try
+		{
+			TEST(a == 1, "Caught int");
+			outer(1);
+		}
+		catch (float f)
+		{
+			TEST(f == 1, "Caught float inside outer catch block");
+			throw;
+		}
+	}
+}
+
+void test_nested()
+{
+	try
+	{
+		test_nested1();
+	}
+	catch (float f)
+	{
+		fprintf(stderr, "Caught re-thrown float\n");
+		TEST(f == 1, "Caught re-thrown float");
+	}
+}
+void test_exceptions(void)
+{
+	TEST_CLEANUP(test_catch(0));
+	TEST_CLEANUP(test_catch(1));
+	TEST_CLEANUP(test_catch(3));
+	TEST_CLEANUP(test_catch(4));
+	//test_catch(2);
+	TEST_CLEANUP(test_nested());
+
+	//printf("Test: %s\n",
+}
