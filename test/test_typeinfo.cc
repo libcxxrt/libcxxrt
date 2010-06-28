@@ -1,4 +1,4 @@
-#include "typeinfo.h"
+#include "../src/typeinfo.h"
 #include "test.h"
 #include <stdio.h>
 

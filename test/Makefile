@@ -1,11 +1,5 @@
-OBJECTS = typeinfo.o exception.o dynamic_cast.o terminate.o guard.o
-
 TEST_OBJECTS = test_typeinfo.o test.o test_exception.o new.o test_guard.o
 
-# Needed for building the shared library
-CXXFLAGS = -fPIC
-# Needed for GCC atomic ops to work on x86.
-CXXFLAGS += -march=native
 # This library implements exception handling, so make sure that the compiler
 # emits the correct code
 CXXFLAGS += -fexceptions 
@@ -18,19 +12,18 @@ CXXFLAGS += -Wall -pedantic -g
 
 # Find the unwind.h header installed from ports
 CPPFLAGS += -I/usr/local/include
-LDFLAGS  += -L/usr/local/lib -L. -lpthread -fexceptions
-
-
-
-
-
-all: test libcxxabi.so.1
+LDFLAGS  += -L/usr/local/lib -L. -lpthread -fexceptions -lcxxabi
 
 PRODUCTS = test libcxxabi.so.1 system_test
 
-test: $(TEST_OBJECTS) libcxxabi.so.1
-	@echo 
-	@gcc $(CPPFLAGS) $(LDFLAGS) -lcxxabi -o test $(TEST_OBJECTS)
+test: $(TEST_OBJECTS) libcxxabi.so library
+	@gcc $(CPPFLAGS) $(LDFLAGS) -o test $(TEST_OBJECTS)
+
+library:
+	@cd ../src && $(MAKE)
+
+libcxxabi.so: 
+	@ln -sf ../src/libcxxabi.so.1 libcxxabi.so
 
 # Fudge the dynamic library search path to include the current directory so
 # that we can run the tests without having to install the .so
@@ -57,13 +50,8 @@ compare: test
 	@LD_LIBRARY_PATH=.:$(LD_LIBRARY_PATH) ./test 2>&1 | tail -1 | diff system_test.out -
 
 
-libcxxabi.so.1: $(OBJECTS)
-	@echo Linking $@...
-	@gcc -fexception -shared $(OBJECTS) $(LDFLAGS) -o libcxxabi.so.1 #-lunwind
-
 .cc.o:
 	@echo Compiling $<...
-	@echo $(CXXFLAGS)
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $< 
 
 clean:

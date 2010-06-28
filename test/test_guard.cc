@@ -12,6 +12,8 @@ struct static_struct
 	};
 };
 
+static static_struct ss;
+
 int init_static(void)
 {
 	static static_struct s;

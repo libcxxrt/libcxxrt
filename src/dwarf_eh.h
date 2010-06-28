@@ -73,6 +73,7 @@ static inline int dwarf_size_of_fixed_size_field(unsigned char type)
 		case DW_EH_PE_udata2: return 2;
 		case DW_EH_PE_udata4: return 4;
 		case DW_EH_PE_udata8: return 8;
+		case DW_EH_PE_absptr: return sizeof(void*);
 	}
 	abort();
 }

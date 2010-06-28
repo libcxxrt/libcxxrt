@@ -815,17 +815,59 @@ extern "C" std::type_info *__cxa_current_exception_type()
  */
 extern "C" void __cxa_call_unexpected(void*exception) 
 {
-	// FIXME: This should call the unexpected handler from the exception, or
-	// the global per-thread one if that one doesn't exist.
 	_Unwind_Exception *exceptionObject = (_Unwind_Exception*)exception;
-	fprintf(stderr, "Exception spec violated!  You have no skill!\n");
 	if (exceptionObject->exception_class == exception_class)
 	{
 		__cxa_exception *ex = (__cxa_exception*)
 			((char*)exceptionObject - offsetof(struct __cxa_exception, unwindHeader));
-
-		// TODO: Demangle type name
-		fprintf(stderr, "Thrown exception was: %s\n", ex->exceptionType->name());
+		if (ex->unexpectedHandler)
+		{
+			ex->unexpectedHandler();
+			// Should not be reached.  
+			abort();
+		}
 	}
-	exit(1);
+	std::unexpected();
+}
+
+namespace std
+{
+	unexpected_handler set_unexpected(unexpected_handler f) throw()
+	{
+		static __cxa_thread_info *info = thread_info();
+		unexpected_handler old = info->unexpectedHandler;
+		info->unexpectedHandler = f;
+		return old;
+	}
+	terminate_handler set_terminate(terminate_handler f) throw()
+	{
+		static __cxa_thread_info *info = thread_info();
+		terminate_handler old = info->terminateHandler;
+		info->terminateHandler = f;
+		return old;
+	}
+	void terminate()
+	{
+		static __cxa_thread_info *info = thread_info_fast();
+		if (0 != info && 0 != info->terminateHandler)
+		{
+			info->terminateHandler();
+			// Should not be reached - a terminate handler is not expected to
+			// return.
+		}
+		abort();
+	}
+	void unexpected()
+	{
+		static __cxa_thread_info *info = thread_info_fast();
+		if (0 != info && 0 != info->unexpectedHandler)
+		{
+			info->unexpectedHandler();
+			// Should not be reached - a terminate handler is not expected to
+			// return.
+			abort();
+		}
+		terminate();
+	}
+
 }
