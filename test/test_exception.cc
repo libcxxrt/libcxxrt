@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include <exception>
+
 void log(void* ignored)
 {
 	printf("Cleanup called on %s\n", *(char**)ignored);
@@ -78,7 +80,7 @@ static void test_catch(int s)
 	catch(int i)
 	{
 		fprintf(stderr, "Caught int %d!\n", i);
-		TEST(s == 0 && i == 1, "Caught int");
+		TEST((s == 0 && i == 1) || (s == 2 && i == 0), "Caught int");
 		return;
 	}
 	catch (float f)
@@ -133,14 +135,21 @@ void test_nested()
 		TEST(f == 1, "Caught re-thrown float");
 	}
 }
+
+static void throw_zero()
+{
+	throw 0;
+}
+
 void test_exceptions(void)
 {
 	TEST_CLEANUP(test_catch(0));
 	TEST_CLEANUP(test_catch(1));
 	TEST_CLEANUP(test_catch(3));
 	TEST_CLEANUP(test_catch(4));
-	//test_catch(2);
 	TEST_CLEANUP(test_nested());
+	std::set_unexpected(throw_zero);
+	test_catch(2);
 
 	//printf("Test: %s\n",
 }
