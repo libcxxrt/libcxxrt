@@ -133,6 +133,16 @@ static pthread_key_t eh_key;
 extern "C" void __cxa_free_exception(void *thrown_exception);
 
 /**
+ * Cleanup function, allowing foreign exception handlers to correctly destroy
+ * this exception if they catch it.
+ */
+static void exception_cleanup(_Unwind_Reason_Code reason, 
+                              struct _Unwind_Exception *ex)
+{
+	__cxa_free_exception((void*)ex);
+}
+
+/**
  * Recursively walk a list of exceptions and delete them all in post-order.
  */
 static void free_exception_list(__cxa_exception *ex)
@@ -439,6 +449,7 @@ extern "C" void __cxa_throw(void *thrown_exception,
 	ex->exceptionDestructor = dest;
 	
 	ex->unwindHeader.exception_class = exception_class;
+	ex->unwindHeader.exception_cleanup = exception_cleanup;
 
 	info->globals.uncaughtExceptions++;
 
@@ -584,12 +595,9 @@ static bool check_action_record(_Unwind_Context *context,
 		dw_eh_ptr_t action_record_offset_base = action_record;
 		int displacement = read_sleb128(&action_record);
 		*selector = filter;
-		// TODO: Negative offset = exception spec
-		// TOCO: 0 = catchall
 		// We only check handler types for C++ exceptions - foreign exceptions
 		// are only allowed for cleanup.
-		// // FIXME: foreign exception if catchall
-		if (filter  > 0 && 0 != ex)
+		if (filter > 0 && 0 != ex)
 		{
 			std::type_info *handler_type = get_type_info_entry(context, lsda, filter);
 			if (check_type_signature(ex, handler_type))
