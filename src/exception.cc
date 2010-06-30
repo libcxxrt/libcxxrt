@@ -7,6 +7,11 @@
 #include "typeinfo.h"
 #include "dwarf_eh.h"
 
+
+namespace std {
+    void unexpected();
+}
+
 /**
  * Class of exceptions to distinguish between this and other exception types.
  *
@@ -877,5 +882,9 @@ namespace std
 		}
 		terminate();
 	}
+    bool uncaught_exception() throw() {
+        __cxa_thread_info *info = thread_info();
+        return info->globals.uncaughtExceptions != 0;
+    }
 
 }
