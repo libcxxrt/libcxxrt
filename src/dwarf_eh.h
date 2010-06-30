@@ -11,6 +11,8 @@
 #	include <unwind.h>
 #endif
 
+#include <stdint.h>
+
 typedef unsigned char *dw_eh_ptr_t;
 // Flag indicating a signed quantity
 #define DW_EH_PE_signed 0x08
