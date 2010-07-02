@@ -1,0 +1,21 @@
+Initialized static
+Initialized static
+Entering try
+Caught int 1!
+cl destroyed: 12
+Entering try
+Caught float 1.000000!
+cl destroyed: 12
+Entering try
+Caught struct {2}!
+cl destroyed: 12
+Entering try
+Caught struct {2}!
+cl destroyed: 12
+cl destroyed: 123
+Caught re-thrown float
+Entering try
+Caught int 0!
+cl destroyed: 12
+
+23 tests, 23 passed, 0 failed
