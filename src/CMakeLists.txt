@@ -7,6 +7,7 @@ set(CXXRT_SOURCES
     typeinfo.cc
     stdexcept.cc
     memory.cc
+    aux.cc
    )
 
 
