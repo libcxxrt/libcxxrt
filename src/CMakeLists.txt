@@ -5,6 +5,8 @@ set(CXXRT_SOURCES
     guard.cc
     terminate.cc
     typeinfo.cc
+    stdexcept.cc
+    memory.cc
    )
 
 
