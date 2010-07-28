@@ -8,10 +8,12 @@ set(CXXTEST_SOURCES
 
 
 add_executable(cxxrt-test-static ${CXXTEST_SOURCES})
-target_link_libraries(cxxrt-test-static cxxrt-static pthread dl)
+set_property(TARGET cxxrt-test-static PROPERTY LINK_FLAGS -nodefaultlibs)
+target_link_libraries(cxxrt-test-static cxxrt-static gcc_s pthread dl c)
 
 add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
-target_link_libraries(cxxrt-test-shared cxxrt-shared pthread dl)
+set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
+target_link_libraries(cxxrt-test-shared cxxrt-shared pthread dl c)
 
 add_executable(system-test ${CXXTEST_SOURCES})
 
