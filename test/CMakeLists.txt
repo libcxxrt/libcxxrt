@@ -7,14 +7,6 @@ set(CXXTEST_SOURCES
    )
 
 
-add_executable(cxxrt-test-static ${CXXTEST_SOURCES})
-set_property(TARGET cxxrt-test-static PROPERTY LINK_FLAGS -nodefaultlibs)
-target_link_libraries(cxxrt-test-static cxxrt-static gcc_s pthread dl c)
-
-add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
-set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
-target_link_libraries(cxxrt-test-shared cxxrt-shared pthread dl c)
-
 add_executable(system-test ${CXXTEST_SOURCES})
 
 # Generating excpected output with system-test
@@ -22,6 +14,14 @@ add_custom_target(test-expected-output ALL
                   COMMAND system-test > ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log 2>&1
                   DEPENDS system-test)
 
+
+add_executable(cxxrt-test-static ${CXXTEST_SOURCES})
+set_property(TARGET cxxrt-test-static PROPERTY LINK_FLAGS -nodefaultlibs)
+target_link_libraries(cxxrt-test-static cxxrt-static gcc_s pthread dl c)
+
+add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
+set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
+target_link_libraries(cxxrt-test-shared cxxrt-shared pthread dl c)
 
 add_test(cxxrt-test-static-test
          ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
@@ -33,4 +33,23 @@ add_test(cxxrt-test-shared-test
          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-shared
          ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log)
 
+
+# Testing with libunwind
+option(TEST_LIBUNWIND "Test libcxxrt with libunwind" OFF)
+
+if(TEST_LIBUNWIND)
+    if(NOT LIBUNWIND_PATH)
+        message(FATAL_ERROR "Path to libunwind should be specified. Please set LIBUNWIND_PATH variable")
+    endif()
+
+    add_executable(cxxrt-test-libunwind-static ${CXXTEST_SOURCES})
+    set_property(TARGET cxxrt-test-libunwind-static PROPERTY LINK_FLAGS
+                 "-L${LIBUNWIND_PATH} -nodefaultlibs")
+    target_link_libraries(cxxrt-test-libunwind-static cxxrt-static unwind pthread dl c)
+
+    add_test(cxxrt-test-libunwind-static-test
+             ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
+             ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-static
+             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log)
+endif()
 
