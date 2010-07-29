@@ -45,7 +45,8 @@ if(TEST_LIBUNWIND)
     add_executable(cxxrt-test-libunwind-static ${CXXTEST_SOURCES})
     set_property(TARGET cxxrt-test-libunwind-static PROPERTY LINK_FLAGS
                  "-L${LIBUNWIND_PATH} -nodefaultlibs")
-    target_link_libraries(cxxrt-test-libunwind-static cxxrt-static unwind pthread dl c)
+    target_link_libraries(cxxrt-test-libunwind-static cxxrt-static
+                          ${LIBUNWIND_PATH}/libunwind.a pthread dl c)
 
     add_test(cxxrt-test-libunwind-static-test
              ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
