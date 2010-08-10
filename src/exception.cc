@@ -757,7 +757,7 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
  * pointer to the caught exception, which is either the adjusted pointer (for
  * C++ exceptions) of the unadjusted pointer (for foreign exceptions).
  */
-#if __GNUC_MINOR__ > 2
+#if __GNUC__ > 3 && __GNUC_MINOR__ > 2
 extern "C" void *__cxa_begin_catch(void *e) throw()
 #else
 extern "C" void *__cxa_begin_catch(void *e)
