@@ -7,6 +7,11 @@
 #include "typeinfo.h"
 #include "dwarf_eh.h"
 
+
+namespace std {
+    void unexpected();
+}
+
 /**
  * Class of exceptions to distinguish between this and other exception types.
  *
@@ -753,7 +758,11 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
  * pointer to the caught exception, which is either the adjusted pointer (for
  * C++ exceptions) of the unadjusted pointer (for foreign exceptions).
  */
+#if __GNUC_MINOR__ > 2
+extern "C" void *__cxa_begin_catch(void *e) throw()
+#else
 extern "C" void *__cxa_begin_catch(void *e)
+#endif
 { 
 	// Decrement the uncaught exceptions count
 	__cxa_eh_globals *globals = __cxa_get_globals();
@@ -877,5 +886,9 @@ namespace std
 		}
 		terminate();
 	}
+    bool uncaught_exception() throw() {
+        __cxa_thread_info *info = thread_info();
+        return info->globals.uncaughtExceptions != 0;
+    }
 
 }

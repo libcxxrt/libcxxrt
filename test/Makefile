@@ -1,4 +1,4 @@
-TEST_OBJECTS = test_typeinfo.o test.o test_exception.o new.o test_guard.o
+TEST_OBJECTS = test_typeinfo.o test.o test_exception.o test_guard.o
 
 # This library implements exception handling, so make sure that the compiler
 # emits the correct code
@@ -12,12 +12,12 @@ CXXFLAGS += -Wall -pedantic -g
 
 # Find the unwind.h header installed from ports
 CPPFLAGS += -I/usr/local/include
-LDFLAGS  += -L/usr/local/lib -L. -lpthread -fexceptions -lcxxabi
+LDFLAGS  += -L/usr/local/lib -L. -lpthread -fexceptions 
 
 PRODUCTS = test libcxxabi.so.1 system_test
 
 test: $(TEST_OBJECTS) libcxxabi.so library
-	@gcc $(CPPFLAGS) $(LDFLAGS) -o test $(TEST_OBJECTS)
+	@gcc $(CPPFLAGS) $(LDFLAGS) -o test $(TEST_OBJECTS) -lcxxabi -ldl
 
 library:
 	@cd ../src && $(MAKE)

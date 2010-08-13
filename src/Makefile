@@ -1,4 +1,5 @@
-OBJECTS = typeinfo.o exception.o dynamic_cast.o terminate.o guard.o
+OBJECTS = typeinfo.o exception.o dynamic_cast.o terminate.o guard.o \
+          stdexcept.o memory.o aux.o
 
 # Needed for building the shared library
 CXXFLAGS = -fPIC
@@ -20,9 +21,15 @@ LDFLAGS  += -L/usr/local/lib -L. -lpthread -fexceptions
 
 PRODUCTS = libcxxabi.so.1
 
+all: libcxxabi.so.1 libcxxabi.a
+
 libcxxabi.so.1: $(OBJECTS)
 	@echo Linking $@...
 	@gcc -fexception -shared $(OBJECTS) $(LDFLAGS) -o libcxxabi.so.1 #-lunwind
+
+libcxxabi.a: $(OBJECTS)
+	@ar cr libcxxabi.a $(OBJECTS)
+
 
 .cc.o:
 	@echo Compiling $<...
@@ -38,3 +45,6 @@ exception.o: exception.cc typeinfo.h abi_namespace.h typeinfo dwarf_eh.h
 guard.o: guard.cc
 terminate.o: terminate.cc
 typeinfo.o: typeinfo.cc typeinfo.h abi_namespace.h typeinfo
+stdexcept.o: stdexcept.cc stdexcept.h
+memory.o: memory.cc stdexcept.h
+aux.o: aux.cc stdexcept.h
