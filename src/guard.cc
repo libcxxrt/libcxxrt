@@ -19,7 +19,7 @@ extern "C" int __cxa_guard_acquire(int64_t *guard_object)
 	char first_byte = (*guard_object) >> 56;
 	if (1 == first_byte) { return 0; }
 	int32_t *lock = low_32_bits(guard_object);
-	while (!__sync_bool_compare_and_swap(lock, 0, 1))
+	while (!__sync_bool_compare_and_swap_4(lock, 0, 1))
 	{
 		// TODO: Use some of the remaining 24 bits to define a mutex to sleep
 		// on.  Whether this is actually worth bothering with depends on
