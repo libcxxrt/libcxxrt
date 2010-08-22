@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
-#include <exception>
 #include "typeinfo.h"
 #include "dwarf_eh.h"
 
