@@ -7,6 +7,7 @@
 #include <malloc.h>
 #include "stdexcept.h"
 
+__attribute__((weak))
 void * operator new(size_t size) {
     void * mem = malloc(size);
     if(mem == NULL) {
@@ -17,7 +18,21 @@ void * operator new(size_t size) {
 }
 
 
+__attribute__((weak))
 void operator delete(void * ptr) {
     free(ptr);
 }
+
+
+__attribute__((weak))
+void * operator new[](size_t size) {
+    return ::operator new(size);
+}
+
+
+__attribute__((weak))
+void operator delete[](void * ptr) {
+    ::operator delete(ptr);
+}
+
 
