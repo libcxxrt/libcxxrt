@@ -844,6 +844,8 @@ extern "C" void __cxa_call_unexpected(void*exception)
 		}
 	}
 	std::unexpected();
+	// Should not be reached.  
+	abort();
 }
 
 namespace std
