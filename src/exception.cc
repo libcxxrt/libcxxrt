@@ -645,7 +645,7 @@ static bool check_action_record(_Unwind_Context *context,
  */
 extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
                                                      _Unwind_Action actions,
-                                                     unsigned long exceptionClass,
+                                                     uint64_t exceptionClass,
                                                      struct _Unwind_Exception *exceptionObject,
                                                      struct _Unwind_Context *context)
 {
