@@ -133,6 +133,14 @@ struct __cxa_thread_info
 /** Key used for thread-local data. */
 static pthread_key_t eh_key;
 
+typedef enum
+{
+	handler_none,
+	handler_cleanup,
+	handler_catch
+} handler_type;
+
+
 // FIXME: Put all of the ABI functions in a header.
 extern "C" void __cxa_free_exception(void *thrown_exception);
 
@@ -587,12 +595,13 @@ static bool check_type_signature(__cxa_exception *ex, std::type_info *type)
  * The selector argument is used to return the selector that is passed in the
  * second exception register when installing the context.
  */
-static bool check_action_record(_Unwind_Context *context,
-                                dwarf_eh_lsda *lsda,
-                                dw_eh_ptr_t action_record,
-                                __cxa_exception *ex,
-                                unsigned long *selector)
+static handler_type check_action_record(_Unwind_Context *context,
+                                        dwarf_eh_lsda *lsda,
+                                        dw_eh_ptr_t action_record,
+                                        __cxa_exception *ex,
+                                        unsigned long *selector)
 {
+	if (!action_record) { return handler_cleanup; }
 	while (action_record)
 	{
 		int filter = read_sleb128(&action_record);
@@ -606,12 +615,13 @@ static bool check_action_record(_Unwind_Context *context,
 			std::type_info *handler_type = get_type_info_entry(context, lsda, filter);
 			if (check_type_signature(ex, handler_type))
 			{
-				return true;
+				return handler_catch;
 			}
 		}
 		else if (filter < 0 && 0 != ex)
 		{
 			unsigned char *type_index = ((unsigned char*)lsda->type_table - filter - 1);
+			bool matched = false;
 			while (*type_index)
 			{
 				std::type_info *handler_type = get_type_info_entry(context, lsda, *(type_index++));
@@ -620,22 +630,24 @@ static bool check_action_record(_Unwind_Context *context,
 				// propagate this exception out.
 				if (check_type_signature(ex, handler_type))
 				{
-					return false;
+					matched = true;
+					break;
 				}
 			}
+			if (matched) { continue; }
 			// If we don't find an allowed exception spec, we need to install
 			// the context for this action.  The landing pad will then call the
-			// unexpected exception function.
-			return true;
+			// unexpected exception function.  Treat this as a catch
+			return handler_catch;
 		}
-		else 
+		else if (filter == 0)
 		{
-			return true;
+			return handler_cleanup;
 		}
 		action_record = displacement ? 
 			action_record_offset_base + displacement : 0;
 	}
-	return false;
+	return handler_none;
 }
 
 /**
@@ -697,11 +709,11 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	{
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
 		action = dwarf_eh_find_callsite(context, &lsda);
-		bool found_handler = check_action_record(context, &lsda,
+		handler_type found_handler = check_action_record(context, &lsda,
 				action.action_record, ex, &selector);
 		// If there's no action record, we've only found a cleanup, so keep
 		// searching for something real
-		if (found_handler)
+		if (found_handler == handler_catch)
 		{
 			// Cache the results for the phase 2 unwind, if we found a handler
 			// and this is not a foreign exception.
@@ -723,20 +735,30 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	// lookup stuff, so we need to do it again.  If this is either a forced
 	// unwind, a foreign exception, or a cleanup, then we just install the
 	// context for a cleanup.
-	//
-	// FIXME: Test that this really is a cleanup
-	if (!(actions & _UA_HANDLER_FRAME) || foreignException)
+	if (!(actions & _UA_HANDLER_FRAME))
 	{
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
 		action = dwarf_eh_find_callsite(context, &lsda);
 		if (0 == action.landing_pad) { return _URC_CONTINUE_UNWIND; }
-		selector = 0;
+		handler_type found_handler = check_action_record(context, &lsda,
+				action.action_record, ex, &selector);
+		// Ignore handlers this time.
+		if (found_handler != handler_cleanup) { return _URC_CONTINUE_UNWIND; }
+	}
+	else if (foreignException)
+	{
+		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
+		action = dwarf_eh_find_callsite(context, &lsda);
+		check_action_record(context, &lsda, action.action_record, ex,
+				&selector);
 	}
 	else
 	{
 		// Restore the saved info if we saved some last time.
 		action.landing_pad = (dw_eh_ptr_t)ex->catchTemp;
+		ex->catchTemp = 0;
 		selector = (unsigned long)ex->handlerSwitchValue;
+		ex->handlerSwitchValue = 0;
 	}
 
 
