@@ -136,20 +136,23 @@ void test_nested()
 	}
 }
 
+static int violations = 0;
 static void throw_zero()
 {
+	violations++;
 	throw 0;
 }
 
 void test_exceptions(void)
 {
+	std::set_unexpected(throw_zero);
 	TEST_CLEANUP(test_catch(0));
 	TEST_CLEANUP(test_catch(1));
 	TEST_CLEANUP(test_catch(3));
 	TEST_CLEANUP(test_catch(4));
 	TEST_CLEANUP(test_nested());
-	std::set_unexpected(throw_zero);
 	test_catch(2);
+	TEST(violations == 1, "Exactly one exception spec violation");
 
 	//printf("Test: %s\n",
 }
