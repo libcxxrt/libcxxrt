@@ -54,7 +54,7 @@ int inner(int i)
 	{
 		case 0: throw (int)1.0;
 		case 1: throw (float)1.0;
-		case 2: throw (int64_t)1;
+		case 2: fprintf(stderr, "Throwing int64_t\n");throw (int64_t)1;
 		case 3: { foo f = {2} ; throw f; }
 		case 4: { bar f; f.i = 2 ; f.bar=1 ; throw f; }
 	}
@@ -140,6 +140,7 @@ static int violations = 0;
 static void throw_zero()
 {
 	violations++;
+fprintf(stderr, "Throwing 0\n");
 	throw 0;
 }
 
@@ -151,8 +152,13 @@ void test_exceptions(void)
 	TEST_CLEANUP(test_catch(3));
 	TEST_CLEANUP(test_catch(4));
 	TEST_CLEANUP(test_nested());
-	test_catch(2);
-	TEST(violations == 1, "Exactly one exception spec violation");
+	try{
+		test_catch(2);
+		TEST(violations == 1, "Exactly one exception spec violation");
+	}
+	catch (int64_t i) {
+		TEST(0, "Caught int64_t, but that violates an exception spec");
+	}
 
 	//printf("Test: %s\n",
 }
