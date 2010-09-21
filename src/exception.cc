@@ -10,6 +10,12 @@
 namespace std {
     void unexpected();
 }
+extern "C" std::type_info *__cxa_current_exception_type();
+extern "C" char* __cxa_demangle(const char* mangled_name,
+                                char* buf,
+                                size_t* n,
+                                int* status);
+
 
 /**
  * Class of exceptions to distinguish between this and other exception types.
@@ -405,10 +411,18 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
  */
 static _Unwind_Reason_Code trace(struct _Unwind_Context *context, void *c)
 {
+	Dl_info myinfo;
+	int mylookup = dladdr((void*)__cxa_current_exception_type, &myinfo);
 	void *ip = (void*)_Unwind_GetIP(context);
 	Dl_info info;
-	dladdr(ip, &info);
-	printf("%p:%s() in %s\n", ip, info.dli_sname, info.dli_fname);
+	if (dladdr(ip, &info) != 0)
+	{
+		fprintf(stderr, "My lib: %s\n", myinfo.dli_fname);
+		if (mylookup == 0 || strcmp(info.dli_fname, myinfo.dli_fname) != 0)
+		{
+			printf("%p:%s() in %s\n", ip, info.dli_sname, info.dli_fname);
+		}
+	}
 	return _URC_CONTINUE_UNWIND;
 }
 
@@ -432,6 +446,16 @@ static void report_failure(_Unwind_Reason_Code err, void *thrown_exception)
 		case _URC_END_OF_STACK:
 			fprintf(stderr, "Terminating due to uncaught exception %p:\n", 
 					thrown_exception);
+/* TODO: Uncomment this when __cxa_demangle() is implemented.
+	
+			size_t bufferSize = 128;
+			char *demangled = (char*)malloc(bufferSize);
+			const char *mangled = __cxa_current_exception_type()->name();
+			int status;
+			__cxa_demangle(mangled, demangled, &bufferSize, &status);
+			fprintf(stderr, "Terminating due to uncaught of type %s:\n", 
+				status == 0 ? (const char*)demangled : mangled);
+*/
 			// Print a back trace if no handler is found.
 			// TODO: Make this optional
 			_Unwind_Backtrace(trace, 0);
@@ -602,12 +626,14 @@ static handler_type check_action_record(_Unwind_Context *context,
                                         unsigned long *selector)
 {
 	if (!action_record) { return handler_cleanup; }
+	handler_type found = handler_none;
 	while (action_record)
 	{
 		int filter = read_sleb128(&action_record);
 		dw_eh_ptr_t action_record_offset_base = action_record;
 		int displacement = read_sleb128(&action_record);
-		*selector = filter;
+		action_record = displacement ? 
+			action_record_offset_base + displacement : 0;
 		// We only check handler types for C++ exceptions - foreign exceptions
 		// are only allowed for cleanup.
 		if (filter > 0 && 0 != ex)
@@ -615,6 +641,7 @@ static handler_type check_action_record(_Unwind_Context *context,
 			std::type_info *handler_type = get_type_info_entry(context, lsda, filter);
 			if (check_type_signature(ex, handler_type))
 			{
+				*selector = filter;
 				return handler_catch;
 			}
 		}
@@ -622,6 +649,7 @@ static handler_type check_action_record(_Unwind_Context *context,
 		{
 			unsigned char *type_index = ((unsigned char*)lsda->type_table - filter - 1);
 			bool matched = false;
+			*selector = filter;
 			while (*type_index)
 			{
 				std::type_info *handler_type = get_type_info_entry(context, lsda, *(type_index++));
@@ -642,12 +670,11 @@ static handler_type check_action_record(_Unwind_Context *context,
 		}
 		else if (filter == 0)
 		{
-			return handler_cleanup;
+			*selector = filter;
+			found = handler_cleanup;
 		}
-		action_record = displacement ? 
-			action_record_offset_base + displacement : 0;
 	}
-	return handler_none;
+	return found;
 }
 
 /**
