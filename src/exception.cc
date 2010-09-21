@@ -417,7 +417,6 @@ static _Unwind_Reason_Code trace(struct _Unwind_Context *context, void *c)
 	Dl_info info;
 	if (dladdr(ip, &info) != 0)
 	{
-		fprintf(stderr, "My lib: %s\n", myinfo.dli_fname);
 		if (mylookup == 0 || strcmp(info.dli_fname, myinfo.dli_fname) != 0)
 		{
 			printf("%p:%s() in %s\n", ip, info.dli_sname, info.dli_fname);
