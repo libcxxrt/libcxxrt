@@ -26,12 +26,14 @@ target_link_libraries(cxxrt-test-shared cxxrt-shared pthread dl c)
 add_test(cxxrt-test-static-test
          ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-static
-         ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log)
+         ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+         ${CMAKE_CURRENT_BINARY_DIR}/test-static-output.log)
 
 add_test(cxxrt-test-shared-test
          ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-shared
-         ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log)
+         ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+         ${CMAKE_CURRENT_BINARY_DIR}/test-shared-output.log)
 
 
 # Testing with libunwind
@@ -51,7 +53,8 @@ if(TEST_LIBUNWIND)
     add_test(cxxrt-test-libunwind-static-test
              ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
              ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-static
-             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log)
+             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+             ${CMAKE_CURRENT_BINARY_DIR}/test-libunwind-static-output.log)
 
     add_executable(cxxrt-test-libunwind-shared ${CXXTEST_SOURCES})
     set_property(TARGET cxxrt-test-libunwind-shared PROPERTY LINK_FLAGS
@@ -62,6 +65,7 @@ if(TEST_LIBUNWIND)
     add_test(cxxrt-test-libunwind-shared-test
              ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
              ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-shared
-             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log)
+             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+             ${CMAKE_CURRENT_BINARY_DIR}/test-libunwind-shared-output.log)
 endif()
 
