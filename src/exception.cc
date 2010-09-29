@@ -443,18 +443,17 @@ static void report_failure(_Unwind_Reason_Code err, void *thrown_exception)
 			fprintf(stderr, "Fatal error during phase 2 unwinding\n");
 			break;
 		case _URC_END_OF_STACK:
-			fprintf(stderr, "Terminating due to uncaught exception %p:\n", 
+			fprintf(stderr, "Terminating due to uncaught exception %p", 
 					thrown_exception);
-/* TODO: Uncomment this when __cxa_demangle() is implemented.
 	
 			size_t bufferSize = 128;
 			char *demangled = (char*)malloc(bufferSize);
 			const char *mangled = __cxa_current_exception_type()->name();
 			int status;
 			__cxa_demangle(mangled, demangled, &bufferSize, &status);
-			fprintf(stderr, "Terminating due to uncaught of type %s:\n", 
+			fprintf(stderr, " of type %s\n", 
 				status == 0 ? (const char*)demangled : mangled);
-*/
+			if (status == 0) { free(demangled); }
 			// Print a back trace if no handler is found.
 			// TODO: Make this optional
 			_Unwind_Backtrace(trace, 0);

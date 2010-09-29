@@ -1,4 +1,7 @@
 #include "typeinfo.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 using std::type_info;
 
@@ -39,3 +42,38 @@ ABI_NAMESPACE::__vmi_class_type_info::~__vmi_class_type_info() {}
 ABI_NAMESPACE::__pbase_type_info::~__pbase_type_info() {}
 ABI_NAMESPACE::__pointer_type_info::~__pointer_type_info() {}
 ABI_NAMESPACE::__pointer_to_member_type_info::~__pointer_to_member_type_info() {}
+
+// From libelftc
+extern "C" char    *cpp_demangle_gnu3(const char *);
+extern "C" bool    is_cpp_mangled_gnu3(const char *);
+
+extern "C" char* __cxa_demangle(const char* mangled_name,
+                                char* buf,
+                                size_t* n,
+                                int* status)
+{
+	char *demangled = cpp_demangle_gnu3(mangled_name);
+	if (NULL != demangled)
+	{
+		size_t len = strlen(demangled);
+		buf = (char*)realloc(buf, len+1);
+		if (0 != buf)
+		{
+			memcpy(buf, demangled, len);
+			buf[len] = 0;
+			*n = len;
+			*status = 0;
+		}
+		else
+		{
+			*status = -1;
+		}
+		free(demangled);
+	}
+	else
+	{
+		*status = -2;
+		return NULL;
+	}
+	return buf;
+}

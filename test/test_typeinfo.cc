@@ -2,9 +2,6 @@
 #include "test.h"
 #include <stdio.h>
 
-// FIXME: Move this and main() to a different file.
-void test_exceptions();
-
 struct Virt1;
 struct Virt2;
 struct Diamond;
@@ -110,11 +107,3 @@ void test_type_info(void)
 	TEST(0 == dynamic_cast<Sub1*>(b2), "Casting Root to Sub1 (0 expected)");
 }
 
-void test_guards(void);
-int main(void)
-{
-	test_type_info();
-	test_guards();
-	test_exceptions();
-	return 0;
-}

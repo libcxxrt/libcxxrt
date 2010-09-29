@@ -5,6 +5,8 @@
 
 #include <exception>
 
+#define fprintf(...)
+
 void log(void* ignored)
 {
 	printf("Cleanup called on %s\n", *(char**)ignored);
