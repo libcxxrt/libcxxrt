@@ -27,7 +27,6 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
-#include <libelftc.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -35,8 +34,6 @@
 #include <string.h>
 
 #include "_libelftc.h"
-
-ELFTC_VCSID("$Id$");
 
 /**
  * @file cpp_demangle.c
@@ -172,9 +169,18 @@ cpp_demangle_gnu3(const char *org)
 	unsigned int limit;
 	char *rtn;
 
-	if (org == NULL || (org_len = strlen(org)) < 2)
+	if (org == NULL)
 		return (NULL);
 
+	// Try demangling as a type for short encodings
+	if (((org_len = strlen(org)) < 2) || (org[0] != '_' || org[1] != 'Z' )) {
+		if (!cpp_demangle_data_init(&ddata, org))
+			return (NULL);
+		if (!cpp_demangle_read_type(&ddata, 0))
+			goto clean;
+		rtn = vector_str_get_flat(&ddata.output, (size_t *) NULL);
+		goto clean;
+	}
 	if (org_len > 11 && !strncmp(org, "_GLOBAL__I_", 11)) {
 		if ((rtn = malloc(org_len + 19)) == NULL)
 			return (NULL);
@@ -183,8 +189,6 @@ cpp_demangle_gnu3(const char *org)
 		return (rtn);
 	}
 
-	if (org[0] != '_' || org[1] != 'Z')
-		return (NULL);
 
 	if (!cpp_demangle_data_init(&ddata, org + 2))
 		return (NULL);
@@ -1941,7 +1945,7 @@ cpp_demangle_read_type(struct cpp_demangle_data *ddata, int delimit)
 		return (0);
 
 	output = &ddata->output;
-	if (!strncmp(ddata->output.container[ddata->output.size - 1], ">", 1)) {
+	if (ddata->output.size > 0 && !strncmp(ddata->output.container[ddata->output.size - 1], ">", 1)) {
 		cpp_demangle_gnu3_push_head++;
 		output = &ddata->output_tmp;
 	} else if (delimit == 1) {

@@ -30,19 +30,6 @@
 
 #include <stdbool.h>
 
-#include "_elftc.h"
-
-struct _Bfd_Target {
-	const char	*bt_name;	/* target name. */
-	unsigned int	 bt_type;	/* target type. */
-	unsigned int	 bt_byteorder;	/* elf target byteorder. */
-	unsigned int	 bt_elfclass;	/* elf target class (32/64bit). */
-	unsigned int	 bt_machine;	/* elf target arch. */
-	unsigned int	 bt_osabi;	/* elf target abi. */
-};
-
-extern struct _Bfd_Target _libelftc_targets[];
-
 /** @brief Dynamic vector data for string. */
 struct vector_str {
 	/** Current size */

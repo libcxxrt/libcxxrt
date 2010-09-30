@@ -1,5 +1,5 @@
 OBJECTS = typeinfo.o exception.o dynamic_cast.o terminate.o guard.o \
-          stdexcept.o memory.o aux.o
+          stdexcept.o memory.o aux.o libelftc_dem_gnu3.o libelftc_vstr.o
 
 # Needed for building the shared library
 CXXFLAGS = -fPIC
