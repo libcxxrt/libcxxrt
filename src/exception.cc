@@ -412,7 +412,7 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 static _Unwind_Reason_Code trace(struct _Unwind_Context *context, void *c)
 {
 	Dl_info myinfo;
-	int mylookup = dladdr((void*)__cxa_current_exception_type, &myinfo);
+	int mylookup = dladdr((void*)(uintptr_t)__cxa_current_exception_type, &myinfo);
 	void *ip = (void*)_Unwind_GetIP(context);
 	Dl_info info;
 	if (dladdr(ip, &info) != 0)
