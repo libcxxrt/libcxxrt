@@ -519,6 +519,11 @@ static void clear_rethrow_flag(__cxa_exception *ex)
 extern "C" void __cxa_rethrow()
 {
 	__cxa_eh_globals *globals = __cxa_get_globals_fast();
+	// Note: We don't remove this from the caught list here, because
+	// __cxa_end_catch will be called when we unwind out of the try block.  We
+	// could probably make this faster by providing an alternative rethrow
+	// function and ensuring that all cleanup code is run before calling it, so
+	// we can skip the top stack frame when unwinding.
 	__cxa_exception *ex = globals->caughtExceptions;
 
 	if (0 == ex)
@@ -526,18 +531,19 @@ extern "C" void __cxa_rethrow()
 		fprintf(stderr, "Attempting to rethrow an exception that doesn't exist!\n");
 		std::terminate();
 	}
-	globals->caughtExceptions = ex->nextException;
 
+
+	assert(ex->handlerCount > 0 && "Rethrowing uncaught exception!");
 	ex->handlerCount--;
 
 	// Set the most significant bit in the exception's handler count as a flag
 	// indicating that the exception is being rethrown.  This flag is not
 	// explicitly tested - we just set a high bit to ensure that the value of
-	// the caughtExceptions field does not drop to 0.  This bit is then cleared
+	// the handlerCount field does not drop to 0.  This bit is then cleared
 	// when the exception is caught again.  As long as we don't have more than
 	// 2^30 exception handlers on the stack, and the compiler correctly
 	// balances calls to begin / end catch, this should work correctly.
-	set_rethrow_flag(globals->caughtExceptions);
+	set_rethrow_flag(ex);
 
 	// Continue unwinding the stack with this exception.  This should unwind to
 	// the place in the caller where __cxa_end_catch() is called.  The caller
