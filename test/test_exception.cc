@@ -29,6 +29,16 @@ struct bar : foo
 };
 
 
+/**
+ * Non-pod type to test throwing
+ */
+class non_pod {
+public:
+    non_pod(int i): x(i) {}
+    int x;
+};
+
+
 static int cleanup_count;
 /**
  * Simple structure declared with a destructor.  Destroying this object will
@@ -59,11 +69,12 @@ int inner(int i)
 		case 2: fprintf(stderr, "Throwing int64_t\n");throw (int64_t)1;
 		case 3: { foo f = {2} ; throw f; }
 		case 4: { bar f; f.i = 2 ; f.bar=1 ; throw f; }
+        case 5: throw non_pod(3);
 	}
 	return -1;
 }
 
-int outer(int i) throw(float, int, foo)
+int outer(int i) throw(float, int, foo, non_pod)
 {
 	//CLEANUP
 	inner(i);
@@ -97,6 +108,11 @@ static void test_catch(int s)
 		TEST((s == 3 || s == 4) && f.i == 2, "Caught struct");
 		return;
 	}
+    catch (non_pod np) {
+        fprintf(stderr, "Caught non_pod {%d}!\n", np.x);
+        TEST(s == 5 && np.x == 3, "Caught non_pod");
+        return;
+    }
 	//abort();
 	TEST(0, "Unreachable line reached");
 }
@@ -153,6 +169,7 @@ void test_exceptions(void)
 	TEST_CLEANUP(test_catch(1));
 	TEST_CLEANUP(test_catch(3));
 	TEST_CLEANUP(test_catch(4));
+	TEST_CLEANUP(test_catch(5));
 	TEST_CLEANUP(test_nested());
 	try{
 		test_catch(2);

@@ -901,6 +901,16 @@ extern "C" void __cxa_call_unexpected(void*exception)
 	abort();
 }
 
+/**
+ * ABI function, returns the adjusted pointer to the exception object.
+ */
+extern "C" void *__cxa_get_exception_ptr(void *exceptionObject) {
+	// exceptionObject is the pointer to the _Unwind_Exception within the
+	// __cxa_exception.  The throw object is after this
+	return ((char*)exceptionObject + sizeof(_Unwind_Exception));
+}
+
+
 namespace std
 {
 	unexpected_handler set_unexpected(unexpected_handler f) throw()
