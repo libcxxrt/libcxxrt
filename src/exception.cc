@@ -583,6 +583,11 @@ static std::type_info *get_type_info_entry(_Unwind_Context *context,
 static bool check_type_signature(__cxa_exception *ex, std::type_info *type)
 {
 	void *exception_ptr = (void*)(ex+1);
+	__pointer_type_info *ptr_type = dynamic_cast<__pointer_type_info*>(ex->exceptionType);
+	if (0 != ptr_type)
+	{
+		exception_ptr = *(void**)exception_ptr;
+	}
 	// Always match a catchall, even with a foreign exception
 	//
 	// Note: A 0 here is a catchall, not a cleanup, so we return true to
@@ -612,6 +617,15 @@ static bool check_type_signature(__cxa_exception *ex, std::type_info *type)
 	{
 		ex->adjustedPtr = cls_type->cast_to(exception_ptr, target_cls_type);
 		return 0 != ex->adjustedPtr;
+	}
+	__pointer_type_info *target_ptr_type = dynamic_cast<__pointer_type_info*>(type);
+	if ((0 != ptr_type) && (0 != target_ptr_type) &&
+		(ptr_type->__pointee == target_ptr_type->__pointee) &&
+		((target_ptr_type->__flags & ~__pbase_type_info::__const_mask) == 
+		 	ptr_type->__flags))
+	{
+		ex->adjustedPtr = exception_ptr;
+		return true;
 	}
 	return false;
 }

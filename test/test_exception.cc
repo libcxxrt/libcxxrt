@@ -5,7 +5,7 @@
 
 #include <exception>
 
-#define fprintf(...)
+//#define fprintf(...)
 
 void log(void* ignored)
 {
@@ -177,6 +177,21 @@ void test_exceptions(void)
 	}
 	catch (int64_t i) {
 		TEST(0, "Caught int64_t, but that violates an exception spec");
+	}
+	int a;
+	try {
+		throw &a;
+	}
+	catch (const int *b)
+	{
+		TEST(&a==b, "Caught const int from thrown int");
+	}
+	try {
+		throw &a;
+	}
+	catch (int *b)
+	{
+		TEST(&a==b, "Caught int from thrown int");
 	}
 
 	//printf("Test: %s\n",
