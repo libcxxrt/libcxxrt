@@ -488,7 +488,7 @@ extern "C" void __cxa_throw(void *thrown_exception,
 	info->globals.uncaughtExceptions++;
 
 	_Unwind_Reason_Code err = _Unwind_RaiseException(&ex->unwindHeader);
-	report_failure(err, thrown_exception);
+    std::terminate();
 }
 
 /**
