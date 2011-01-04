@@ -27,6 +27,7 @@ namespace ABI_NAMESPACE
 	{
 		virtual ~__class_type_info();
 		virtual void *cast_to(void *obj, const struct __class_type_info *other) const;
+        virtual bool can_cast_to(const struct __class_type_info *other) const;
 	};
 
 	// Single-inheritance class.  
@@ -35,6 +36,7 @@ namespace ABI_NAMESPACE
 		virtual ~__si_class_type_info();
 		const __class_type_info *__base_type;
 		virtual void *cast_to(void *obj, const struct __class_type_info *other) const;
+        virtual bool can_cast_to(const struct __class_type_info *other) const;
 	};
 
 	struct __base_class_type_info
@@ -76,6 +78,7 @@ namespace ABI_NAMESPACE
 			__diamond_shaped_mask = 0x2
 		};
 		virtual void *cast_to(void *obj, const struct __class_type_info *other) const;
+        virtual bool can_cast_to(const struct __class_type_info *other) const;
 	};
 
 	struct __pbase_type_info : public std::type_info

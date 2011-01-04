@@ -575,15 +575,19 @@ static std::type_info *get_type_info_entry(_Unwind_Context *context,
 			lsda->type_table_encoding, offset, start);
 }
 
+
 /**
  * Checks the type signature found in a handler against the type of the thrown
  * object.  If ex is 0 then it is assumed to be a foreign exception and only
  * matches cleanups.
  */
-static bool check_type_signature(__cxa_exception *ex, std::type_info *type)
+static bool check_type_signature(__cxa_exception *ex, const std::type_info *type)
 {
 	void *exception_ptr = (void*)(ex+1);
-	__pointer_type_info *ptr_type = dynamic_cast<__pointer_type_info*>(ex->exceptionType);
+    const std::type_info *ex_type = ex->exceptionType;
+
+	const __pointer_type_info *ptr_type =
+        dynamic_cast<const __pointer_type_info*>(ex_type);
 	if (0 != ptr_type)
 	{
 		exception_ptr = *(void**)exception_ptr;
@@ -605,27 +609,44 @@ static bool check_type_signature(__cxa_exception *ex, std::type_info *type)
 
 	if (0 == ex) { return false; }
 
+    const __pointer_type_info *target_ptr_type =
+        dynamic_cast<const __pointer_type_info*>(type);
+
+    if (0 != ptr_type && 0 != target_ptr_type)
+    {
+        if (ptr_type->__flags & ~target_ptr_type->__flags) {
+            // handler pointer is less qualified
+            return false;
+        }
+
+        // special case for void* handler
+        if(*target_ptr_type->__pointee == typeid(void)) {
+            ex->adjustedPtr = exception_ptr;
+            return true;
+        }
+
+        ex_type = ptr_type->__pointee;
+        type = target_ptr_type->__pointee;
+    }
+
 	// If the types are the same, no casting is needed.
-	if (*type == *ex->exceptionType)
+	if (*type == *ex_type)
 	{
 		ex->adjustedPtr = exception_ptr;
 		return true;
 	}
-	__class_type_info *cls_type = dynamic_cast<__class_type_info*>(ex->exceptionType);
-	__class_type_info *target_cls_type = dynamic_cast<__class_type_info*>(type);
-	if (0 != cls_type && 0 != target_cls_type)
+
+	const __class_type_info *cls_type =
+        dynamic_cast<const __class_type_info*>(ex_type);
+	const __class_type_info *target_cls_type =
+        dynamic_cast<const __class_type_info*>(type);
+
+	if (0 != cls_type &&
+        0 != target_cls_type &&
+        cls_type->can_cast_to(target_cls_type))
 	{
 		ex->adjustedPtr = cls_type->cast_to(exception_ptr, target_cls_type);
-		return 0 != ex->adjustedPtr;
-	}
-	__pointer_type_info *target_ptr_type = dynamic_cast<__pointer_type_info*>(type);
-	if ((0 != ptr_type) && (0 != target_ptr_type) &&
-		(ptr_type->__pointee == target_ptr_type->__pointee) &&
-		((target_ptr_type->__flags & ~__pbase_type_info::__const_mask) == 
-		 	ptr_type->__flags))
-	{
-		ex->adjustedPtr = exception_ptr;
-		return true;
+        return true;
 	}
 	return false;
 }

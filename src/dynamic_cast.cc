@@ -16,6 +16,11 @@ struct vtable_header
 
 #define ADD_TO_PTR(x, off) (__typeof__(x))(((char*)x) + off)
 
+bool __class_type_info::can_cast_to(const struct __class_type_info *other) const
+{
+    return this == other;
+}
+
 void *__class_type_info::cast_to(void *obj, const struct __class_type_info *other) const
 {
 	if (this == other)
@@ -24,6 +29,13 @@ void *__class_type_info::cast_to(void *obj, const struct __class_type_info *othe
 	}
 	return 0;
 }
+
+
+bool __si_class_type_info::can_cast_to(const struct __class_type_info *other) const
+{
+    return this == other || __base_type->can_cast_to(other);
+}
+
 void *__si_class_type_info::cast_to(void *obj, const struct __class_type_info *other) const
 {
 	if (this == other)
@@ -32,6 +44,25 @@ void *__si_class_type_info::cast_to(void *obj, const struct __class_type_info *o
 	}
 	return __base_type->cast_to(obj, other);
 }
+
+
+bool __vmi_class_type_info::can_cast_to(const struct __class_type_info *other) const
+{
+	if (this == other)
+	{
+		return true;
+	}
+	for (unsigned int i=0 ; i<__base_count ; i++)
+	{
+		const __base_class_type_info *info = &__base_info[i];
+        if(info->__base_type->can_cast_to(other))
+        {
+            return true;
+        }
+	}
+	return false;
+}
+
 void *__vmi_class_type_info::cast_to(void *obj, const struct __class_type_info *other) const
 {
 	if (this == other)
