@@ -18,7 +18,7 @@ exception::~exception() {
 }
 
 const char* exception::what() const throw() {
-    return 0;
+    return "std::exception";
 }
 
 
