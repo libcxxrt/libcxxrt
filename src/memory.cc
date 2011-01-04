@@ -29,7 +29,11 @@ void * operator new(size_t size) {
 
     void * mem = malloc(size);
     while(mem == NULL) {
-        new_handl();
+        if(new_handl != NULL) {
+            new_handl();
+        } else {
+            throw std::bad_alloc();
+        }
         mem = malloc(size);
     }
 
