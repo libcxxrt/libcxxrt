@@ -774,7 +774,17 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	if (actions & _UA_SEARCH_PHASE)
 	{
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
-		action = dwarf_eh_find_callsite(context, &lsda);
+		if (!dwarf_eh_find_callsite(context, &lsda, &action))
+        {
+            // EH range not found. This happens if exception is thrown
+            // and not catched inside cleanup (destructor).
+            // We should call terminate() in this case
+            // catchTemp (landing pad) field of exception object will
+            // contain null when personality function will be called
+            // with _UA_HANDLER_FRAME action
+            return _URC_HANDLER_FOUND;
+        }
+
 		handler_type found_handler = check_action_record(context, &lsda,
 				action.action_record, ex, &selector);
 		// If there's no action record, we've only found a cleanup, so keep
@@ -803,18 +813,25 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	// context for a cleanup.
 	if (!(actions & _UA_HANDLER_FRAME))
 	{
+        // cleanup
+
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
-		action = dwarf_eh_find_callsite(context, &lsda);
+		dwarf_eh_find_callsite(context, &lsda, &action);
 		if (0 == action.landing_pad) { return _URC_CONTINUE_UNWIND; }
 		handler_type found_handler = check_action_record(context, &lsda,
 				action.action_record, ex, &selector);
 		// Ignore handlers this time.
 		if (found_handler != handler_cleanup) { return _URC_CONTINUE_UNWIND; }
 	}
+    else if (ex->catchTemp == 0)
+    {
+        // uncaught exception in claenup, calling terminate
+        std::terminate();
+    }
 	else if (foreignException)
 	{
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
-		action = dwarf_eh_find_callsite(context, &lsda);
+        dwarf_eh_find_callsite(context, &lsda, &action);
 		check_action_record(context, &lsda, action.action_record, ex,
 				&selector);
 	}

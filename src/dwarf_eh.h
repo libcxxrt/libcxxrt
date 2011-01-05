@@ -269,11 +269,15 @@ struct dwarf_eh_action
 
 /**
  * Look up the landing pad that corresponds to the current invoke.
+ * Returns true if record exists.
  */
-static struct dwarf_eh_action 
-	dwarf_eh_find_callsite(struct _Unwind_Context *context, struct dwarf_eh_lsda *lsda)
+static bool 
+	dwarf_eh_find_callsite(struct _Unwind_Context *context,
+                           struct dwarf_eh_lsda *lsda,
+                           struct dwarf_eh_action *result)
 {
-	struct dwarf_eh_action result = { 0, 0};
+    result->action_record = 0;
+    result->landing_pad = 0;
 	uint64_t ip = _Unwind_GetIP(context) - _Unwind_GetRegionStart(context);
 	unsigned char *callsite_table = (unsigned char*)lsda->call_site_table;
 	while (callsite_table <= lsda->action_table)
@@ -289,22 +293,30 @@ static struct dwarf_eh_action
 		landing_pad = read_value(lsda->callsite_encoding, &callsite_table);
 		action = read_uleb128(&callsite_table);
 
-		if (call_site_start <= ip && ip <= call_site_start + call_site_size)
+        // we shold not include call_site_start (begin of the region)
+        // address in ip range. For each call site
+        //
+        // address1: call proc
+        // address2: next instruction
+        //
+        // call stack contains address2 and not address1.
+        // address1 can be at the end of another EH region.
+		if (call_site_start < ip && ip <= call_site_start + call_site_size)
 		{
 			if (action)
 			{
 				// Action records are 1-biased so both no-record and zeroth
 				// record can be stored.
-				result.action_record = lsda->action_table + action - 1;
+				result->action_record = lsda->action_table + action - 1;
 			}
 			// No landing pad means keep unwinding.
 			if (landing_pad)
 			{
 				// Landing pad is the offset from the value in the header
-				result.landing_pad = lsda->landing_pads + landing_pad;
+				result->landing_pad = lsda->landing_pads + landing_pad;
 			}
-			break;
+			return true;
 		}
 	}
-	return result;
+	return false;
 }
