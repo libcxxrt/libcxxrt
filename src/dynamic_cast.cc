@@ -55,7 +55,7 @@ bool __vmi_class_type_info::can_cast_to(const struct __class_type_info *other) c
 	for (unsigned int i=0 ; i<__base_count ; i++)
 	{
 		const __base_class_type_info *info = &__base_info[i];
-        if(info->__base_type->can_cast_to(other))
+        if(info->isPublic() && info->__base_type->can_cast_to(other))
         {
             return true;
         }
