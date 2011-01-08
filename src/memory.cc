@@ -41,6 +41,27 @@ void * operator new(size_t size) {
 }
 
 
+namespace std {
+    struct nothrow_t {};
+}
+
+__attribute__((weak))
+void * operator new(size_t size, const std::nothrow_t &) throw() {
+
+    void * mem = malloc(size);
+    while(mem == NULL) {
+        if(new_handl != NULL) {
+            new_handl();
+        } else {
+            return NULL;
+        }
+        mem = malloc(size);
+    }
+
+    return mem;
+}
+
+
 __attribute__((weak))
 void operator delete(void * ptr) {
     free(ptr);
