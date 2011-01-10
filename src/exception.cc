@@ -136,6 +136,11 @@ struct __cxa_thread_info
 	__cxa_eh_globals globals;
 };
 
+/** The global termination handler. */
+static terminate_handler terminateHandler = abort;
+/** The global unexpected exception handler. */
+static unexpected_handler unexpectedHandler = abort;
+
 /** Key used for thread-local data. */
 static pthread_key_t eh_key;
 
@@ -488,7 +493,7 @@ extern "C" void __cxa_throw(void *thrown_exception,
 	info->globals.uncaughtExceptions++;
 
 	_Unwind_Reason_Code err = _Unwind_RaiseException(&ex->unwindHeader);
-    std::terminate();
+	report_failure(err, thrown_exception);
 }
 
 /**
@@ -963,8 +968,14 @@ extern "C" void *__cxa_get_exception_ptr(void *exceptionObject)
 }
 
 
-namespace std
+static bool thread_local_handlers = false;
+
+namespace pathscale
 {
+	void set_use_thread_local_handlers(bool flag)
+	{
+		thread_local_handlers = flag;
+	}
 	unexpected_handler set_unexpected(unexpected_handler f) throw()
 	{
 		static __cxa_thread_info *info = thread_info();
@@ -979,6 +990,21 @@ namespace std
 		info->terminateHandler = f;
 		return old;
 	}
+}
+
+namespace std
+{
+	unexpected_handler set_unexpected(unexpected_handler f) throw()
+	{
+		if (thread_local_handlers) { return pathscale::set_unexpected(f); }
+
+		return __sync_lock_test_and_set(&unexpectedHandler, f);
+	}
+	terminate_handler set_terminate(terminate_handler f) throw()
+	{
+		if (thread_local_handlers) { return pathscale::set_terminate(f); }
+		return __sync_lock_test_and_set(&terminateHandler, f);
+	}
 	void terminate()
 	{
 		static __cxa_thread_info *info = thread_info_fast();
@@ -987,8 +1013,9 @@ namespace std
 			info->terminateHandler();
 			// Should not be reached - a terminate handler is not expected to
 			// return.
+			abort();
 		}
-		abort();
+		terminateHandler();
 	}
 	void unexpected()
 	{
@@ -1000,7 +1027,7 @@ namespace std
 			// return.
 			abort();
 		}
-		terminate();
+		unexpectedHandler();
 	}
     bool uncaught_exception() throw() {
         __cxa_thread_info *info = thread_info();
