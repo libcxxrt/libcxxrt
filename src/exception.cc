@@ -496,23 +496,6 @@ extern "C" void __cxa_throw(void *thrown_exception,
 	report_failure(err, thrown_exception);
 }
 
-/**
- * Sets the flag used to prevent an exception being deallocated while
- * rethrowing.
- */
-static void set_rethrow_flag(__cxa_exception *ex)
-{
-	ex->handlerCount |= 1 << ((sizeof(int) * 8) - 2);
-}
-/**
- * Unconditionally clears the flag used to prevent an exception being
- * deallocated while rethrowing.  This function is safe to call even when the
- * flag is not set.
- */
-static void clear_rethrow_flag(__cxa_exception *ex)
-{
-	ex->handlerCount &= ~(1 << ((sizeof(int) * 8) - 2));
-}
 
 /**
  * ABI function.  Rethrows the current exception.  Does not remove the
@@ -539,16 +522,14 @@ extern "C" void __cxa_rethrow()
 
 
 	assert(ex->handlerCount > 0 && "Rethrowing uncaught exception!");
-	ex->handlerCount--;
 
-	// Set the most significant bit in the exception's handler count as a flag
-	// indicating that the exception is being rethrown.  This flag is not
-	// explicitly tested - we just set a high bit to ensure that the value of
-	// the handlerCount field does not drop to 0.  This bit is then cleared
-	// when the exception is caught again.  As long as we don't have more than
-	// 2^30 exception handlers on the stack, and the compiler correctly
-	// balances calls to begin / end catch, this should work correctly.
-	set_rethrow_flag(ex);
+	// ex->handlerCount will be decremented in __cxa_end_catch in enclosing
+	// catch block
+	
+	// Make handler count negative. This will tell __cxa_end_catch that
+	// exception was rethrown and exception object should not be destroyed
+	// when handler count become zero
+	ex->handlerCount = -ex->handlerCount;
 
 	// Continue unwinding the stack with this exception.  This should unwind to
 	// the place in the caller where __cxa_end_catch() is called.  The caller
@@ -887,12 +868,34 @@ extern "C" void *__cxa_begin_catch(void *e)
 		// increment its handler count so that it won't be deleted prematurely.
 		ex->nextException = globals->caughtExceptions;
 		globals->caughtExceptions = ex;
-		ex->handlerCount++;
+
+		if (ex->handlerCount < 0)
+		{
+			// Rethrown exception is catched before end of catch block.
+			// Clear the rethrow flag (make value positive) - we are allowed
+			// to delete this exception at the end of the catch block, as long
+			// as it isn't thrown again later.
+			
+			// Code pattern:
+			//
+			// try {
+			//     throw x;
+			// }
+			// catch() {
+			//     try {
+			//         throw;
+			//     }
+			//     catch() {
+			//         __cxa_begin_catch() <- we are here
+			//     }
+			// }
+			ex->handlerCount = -ex->handlerCount + 1;
+		}
+		else
+		{
+			ex->handlerCount++;
+		}
 		
-		// Clear the rethrow flag if it's set - we are allowed to delete this
-		// exception at the end of the catch block, as long as it isn't thrown
-		// again later.
-		clear_rethrow_flag(ex);
 		return ex->adjustedPtr;
 	}
 	// exceptionObject is the pointer to the _Unwind_Exception within the
@@ -911,16 +914,45 @@ extern "C" void __cxa_end_catch()
 	__cxa_eh_globals *globals = __cxa_get_globals_fast();
 	__cxa_exception *ex = globals->caughtExceptions;
 
-	ex->handlerCount--;
-
 	assert(0 != ex && "Ending catch when no exception is on the stack!");
+
+	bool deleteException = true;
+
+	if (ex->handlerCount < 0)
+	{
+		// exception was rethrown. Exception should not be deleted even if
+		// handlerCount become zero.
+		// Code pattern:
+		// try {
+		//     throw x;
+		// }
+		// catch() {
+		//     {
+		//         throw;
+		//     }
+		//     cleanup {
+		//         __cxa_end_catch();   <- we are here
+		//     }
+		// }
+		//
+		
+		ex->handlerCount++;
+		deleteException = false;
+	}
+	else
+	{
+		ex->handlerCount--;
+	}
 
 	if (ex->handlerCount == 0)
 	{
 		globals->caughtExceptions = ex->nextException;
-		// __cxa_free_exception() expects to be passed the thrown object, which
-		// immediately follows the exception, not the exception itself
-		__cxa_free_exception(ex+1);
+		if (deleteException)
+		{
+			// __cxa_free_exception() expects to be passed the thrown object, which
+			// immediately follows the exception, not the exception itself
+			__cxa_free_exception(ex+1);
+		}
 	}
 }
 
