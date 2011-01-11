@@ -436,7 +436,7 @@ static _Unwind_Reason_Code trace(struct _Unwind_Context *context, void *c)
  * If the failure happened by falling off the end of the stack without finding
  * a handler, prints a back trace before aborting.
  */
-static void report_failure(_Unwind_Reason_Code err, void *thrown_exception)
+static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exception)
 {
 	switch (err)
 	{
@@ -453,7 +453,7 @@ static void report_failure(_Unwind_Reason_Code err, void *thrown_exception)
 	
 			size_t bufferSize = 128;
 			char *demangled = (char*)malloc(bufferSize);
-			const char *mangled = __cxa_current_exception_type()->name();
+			const char *mangled = thrown_exception->exceptionType->name();
 			int status;
 			__cxa_demangle(mangled, demangled, &bufferSize, &status);
 			fprintf(stderr, " of type %s\n", 
@@ -493,7 +493,7 @@ extern "C" void __cxa_throw(void *thrown_exception,
 	info->globals.uncaughtExceptions++;
 
 	_Unwind_Reason_Code err = _Unwind_RaiseException(&ex->unwindHeader);
-	report_failure(err, thrown_exception);
+	report_failure(err, ex);
 }
 
 
@@ -536,7 +536,7 @@ extern "C" void __cxa_rethrow()
 	// will then run cleanup code and bounce the exception back with
 	// _Unwind_Resume().
 	_Unwind_Reason_Code err = _Unwind_Resume_or_Rethrow(&ex->unwindHeader);
-	report_failure(err, ex + 1);
+	report_failure(err, ex);
 }
 
 /**
