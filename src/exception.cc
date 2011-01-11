@@ -864,10 +864,13 @@ extern "C" void *__cxa_begin_catch(void *e)
 		__cxa_exception *ex = (__cxa_exception*)
 			((char*)exceptionObject - offsetof(struct __cxa_exception, unwindHeader));
 
-		// Add this to the front of the list of exceptions being handled and
-		// increment its handler count so that it won't be deleted prematurely.
-		ex->nextException = globals->caughtExceptions;
-		globals->caughtExceptions = ex;
+		if (ex->handlerCount == 0)
+		{
+			// Add this to the front of the list of exceptions being handled and
+			// increment its handler count so that it won't be deleted prematurely.
+			ex->nextException = globals->caughtExceptions;
+			globals->caughtExceptions = ex;
+		}
 
 		if (ex->handlerCount < 0)
 		{
