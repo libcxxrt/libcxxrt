@@ -506,7 +506,7 @@ extern "C" void __cxa_throw(void *thrown_exception,
  */
 extern "C" void __cxa_rethrow()
 {
-	__cxa_eh_globals *globals = __cxa_get_globals_fast();
+	__cxa_eh_globals *globals = __cxa_get_globals();
 	// Note: We don't remove this from the caught list here, because
 	// __cxa_end_catch will be called when we unwind out of the try block.  We
 	// could probably make this faster by providing an alternative rethrow
