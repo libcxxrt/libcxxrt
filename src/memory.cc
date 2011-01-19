@@ -51,7 +51,14 @@ void * operator new(size_t size, const std::nothrow_t &) throw() {
     void * mem = malloc(size);
     while(mem == NULL) {
         if(new_handl != NULL) {
-            new_handl();
+            try {
+                new_handl();
+            }
+            catch(std::bad_alloc &) {
+                // nothrow operator new should return NULL in case of
+                // std::bad_alloc exception in new handler
+                return NULL;
+            }
         } else {
             return NULL;
         }
