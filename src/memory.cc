@@ -4,7 +4,7 @@
 
 
 #include <stddef.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include "stdexcept.h"
 
 namespace std {
