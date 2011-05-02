@@ -7,8 +7,10 @@ namespace std
 	class type_info
 	{
 		public:
-		/** Virtual destructor.  This class must have one virtual function to
-		 * ensure that it has a vtable. */
+		/**
+		 * Virtual destructor.  This class must have one virtual function to
+		 * ensure that it has a vtable.
+		 */
 		virtual ~type_info();
 		bool operator==(const type_info &) const;
 		bool operator!=(const type_info &) const;

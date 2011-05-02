@@ -14,6 +14,10 @@ struct vtable_header
 	const __class_type_info *type;
 };
 
+/**
+ * Simple macro that does pointer arithmetic in bytes but returns a value of
+ * the same type as the original.
+ */
 #define ADD_TO_PTR(x, off) (__typeof__(x))(((char*)x) + off)
 
 bool __class_type_info::can_cast_to(const struct __class_type_info *other) const
@@ -104,7 +108,17 @@ void *__vmi_class_type_info::cast_to(void *obj, const struct __class_type_info *
 }
 
 /**
- * ABI function used to implement the dynamic_cast<> operator.
+ * ABI function used to implement the dynamic_cast<> operator.  Some cases of
+ * this operator are implemented entirely in the compiler (e.g. to void*).
+ * This function implements the dynamic casts of the form dynamic_cast<T>(v).
+ * This will be translated to a call to this function with the value v as the
+ * first argument.  The type id of the static type of v is the second argument
+ * and the type id of the destination type (T) is the third argument.
+ *
+ * The third argument is a hint about the compiler's guess at the correct
+ * pointer offset.  If this value is negative, then -1 indicates no hint, -2
+ * that src is not a public base of dst, and -3 that src is a multiple public
+ * base type but never a virtual base type
  */
 extern "C" void* __dynamic_cast(const void *sub,
                                 const __class_type_info *src,
@@ -112,7 +126,8 @@ extern "C" void* __dynamic_cast(const void *sub,
                                 ptrdiff_t src2dst_offset)
 {
 	char *vtable_location = *(char**)sub;
-	const vtable_header *header = (const vtable_header*)(vtable_location - sizeof(vtable_header));
+	const vtable_header *header =
+		(const vtable_header*)(vtable_location - sizeof(vtable_header));
 	void *leaf = ADD_TO_PTR((void*)sub, header->leaf_offset);
 	return header->type->cast_to(leaf, dst);
 }

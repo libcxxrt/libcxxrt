@@ -1,5 +1,13 @@
-OBJECTS = typeinfo.o exception.o dynamic_cast.o terminate.o guard.o \
-          stdexcept.o memory.o aux.o libelftc_dem_gnu3.o libelftc_vstr.o
+OBJECTS = \
+		aux.o \
+		dynamic_cast.o \
+		exception.o \
+		guard.o \
+		libelftc_vstr.o \
+		libelftc_dem_gnu3.o \
+		memory.o \
+		stdexcept.o \
+		typeinfo.o
 
 # Needed for building the shared library
 CXXFLAGS = -fPIC
@@ -35,16 +43,25 @@ libcxxabi.a: $(OBJECTS)
 	@echo Compiling $<...
 	@$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $< 
 
+.c.o:
+	@echo Compiling $<...
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $< 
+
 clean:
 	@echo Cleaning...
 	@rm -f $(OBJECTS) $(PRODUCTS) $(TEST_OBJECTS) vgcore* *.core
 
+# Make seems to think that typeinfo should be created by compiling typeinfo.cc
+# into an executable.  This is bad because it introduces a circular dependency,
+# and if you're unlucky tries to do some crazy things and deletes typeinfo.  We
+# add this rule as a little fudge to tell Make to behave like a good little
+# program.
+typeinfo: typeinfo.h
+	@touch typeinfo
 
 dynamic_cast.o: dynamic_cast.cc typeinfo.h abi_namespace.h typeinfo
 exception.o: exception.cc typeinfo.h abi_namespace.h typeinfo dwarf_eh.h
 guard.o: guard.cc
-terminate.o: terminate.cc
 typeinfo.o: typeinfo.cc typeinfo.h abi_namespace.h typeinfo
-stdexcept.o: stdexcept.cc stdexcept.h
-memory.o: memory.cc stdexcept.h
-aux.o: aux.cc stdexcept.h
+memory.o: memory.cc 
+aux.o: aux.cc 

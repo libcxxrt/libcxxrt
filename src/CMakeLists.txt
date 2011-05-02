@@ -3,9 +3,8 @@ set(CXXRT_SOURCES
     dynamic_cast.cc
     exception.cc
     guard.cc
-    terminate.cc
-    typeinfo.cc
     stdexcept.cc
+    typeinfo.cc
     memory.cc
     aux.cc
     libelftc_dem_gnu3.c

@@ -5,7 +5,7 @@
 
 #include <exception>
 
-//#define fprintf(...)
+#define fprintf(...)
 
 void log(void* ignored)
 {
@@ -162,6 +162,8 @@ fprintf(stderr, "Throwing 0\n");
 	throw 0;
 }
 
+extern "C" void __cxa_bad_cast();
+
 void test_exceptions(void)
 {
 	std::set_unexpected(throw_zero);
@@ -193,6 +195,19 @@ void test_exceptions(void)
 	{
 		TEST(&a==b, "Caught int from thrown int");
 	}
+	try
+	{
+		__cxa_bad_cast();
+	}
+	catch (std::exception b)
+	{
+		TEST(1, "Caught bad cast");
+	}
+	catch (...)
+	{
+		TEST(0, "Bad cast was not caught correctly");
+	}
+
 
 	//printf("Test: %s\n",
 }

@@ -17,7 +17,7 @@ LDFLAGS  += -L/usr/local/lib -L. -lpthread -fexceptions
 PRODUCTS = test libcxxabi.so.1 system_test
 
 test: $(TEST_OBJECTS) libcxxabi.so library
-	@gcc $(CPPFLAGS) $(LDFLAGS) -o test $(TEST_OBJECTS) -lcxxabi
+	@gcc $(CPPFLAGS) $(LDFLAGS) -o test $(TEST_OBJECTS) -lcxxabi -lstdc++
 
 library:
 	@cd ../src && $(MAKE)
@@ -57,3 +57,4 @@ compare: test
 clean:
 	@echo Cleaning...
 	@rm -f $(OBJECTS) $(PRODUCTS) $(TEST_OBJECTS) vgcore* *.core
+	@cd ../src && $(MAKE) clean

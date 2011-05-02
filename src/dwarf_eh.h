@@ -1,6 +1,17 @@
+/**
+ * dwarf_eh.h - Defines some helper functions for parsing DWARF exception
+ * handling tables.
+ *
+ * This file contains various helper functions that are independent of the
+ * language-specific code.  It can be used in any personality function for the
+ * Itanium ABI.
+ */
 #include <assert.h>
 
-// _GNU_SOURCE must be defiend for unwind.h to expose some of the functions
+// TODO: Factor out Itanium / ARM differences.  We probably want an itanium.h
+// and arm.h that can be included by this file depending on the target ABI.
+
+// _GNU_SOURCE must be defined for unwind.h to expose some of the functions
 // that we want.  If it isn't, then we define it and undefine it to make sure
 // that it doesn't impact the rest of the program.
 #ifndef _GNU_SOURCE
@@ -13,78 +24,111 @@
 
 #include <stdint.h>
 
+/// Type used for pointers into DWARF data
 typedef unsigned char *dw_eh_ptr_t;
+
 // Flag indicating a signed quantity
 #define DW_EH_PE_signed 0x08
-/// DWARF data encoding types
+/// DWARF data encoding types.  
 enum dwarf_data_encoding
 {
-	// Unsigned, little-endian, base 128-encoded (variable length)
+	/// Unsigned, little-endian, base 128-encoded (variable length).
 	DW_EH_PE_uleb128 = 0x01,
-	// uint16
+	/// Unsigned 16-bit integer.
 	DW_EH_PE_udata2  = 0x02,
-	// uint32
+	/// Unsigned 32-bit integer.
 	DW_EH_PE_udata4  = 0x03,
-	// uint64
+	/// Unsigned 64-bit integer.
 	DW_EH_PE_udata8  = 0x04,
-	// Signed versions of the above:
+	/// Signed, little-endian, base 128-encoded (variable length)
 	DW_EH_PE_sleb128 = DW_EH_PE_uleb128 | DW_EH_PE_signed,
+	/// Signed 16-bit integer.
 	DW_EH_PE_sdata2  = DW_EH_PE_udata2 | DW_EH_PE_signed,
+	/// Signed 32-bit integer.
 	DW_EH_PE_sdata4  = DW_EH_PE_udata4 | DW_EH_PE_signed,
+	/// Signed 32-bit integer.
 	DW_EH_PE_sdata8  = DW_EH_PE_udata8 | DW_EH_PE_signed
 };
 
+/**
+ * Returns the encoding for a DWARF EH table entry.  The encoding is stored in
+ * the low four of an octet.  The high four bits store the addressing mode.
+ */
 static inline enum dwarf_data_encoding get_encoding(unsigned char x)
 {
 	return (enum dwarf_data_encoding)(x & 0xf);
 }
 
+/**
+ * DWARF addressing mode constants.  When reading a pointer value from a DWARF
+ * exception table, you must know how it is stored and what the addressing mode
+ * is.  The low four bits tell you the encoding, allowing you to decode a
+ * number.  The high four bits tell you the addressing mode, allowing you to
+ * turn that number into an address in memory.
+ */
 enum dwarf_data_relative
 {
-	// Value is omitted
+	/// Value is omitted
 	DW_EH_PE_omit     = 0xff,
-	// Absolute pointer value
+	/// Absolute pointer value
 	DW_EH_PE_absptr   = 0x00,
-	// Value relative to program counter
+	/// Value relative to program counter
 	DW_EH_PE_pcrel    = 0x10,
-	// Value relative to the text segment
+	/// Value relative to the text segment
 	DW_EH_PE_textrel  = 0x20,
-	// Value relative to the data segment
+	/// Value relative to the data segment
 	DW_EH_PE_datarel  = 0x30,
-	// Value relative to the start of the function
+	/// Value relative to the start of the function
 	DW_EH_PE_funcrel  = 0x40,
-	// Aligned pointer (Not supported yet - are they actually used?)
+	/// Aligned pointer (Not supported yet - are they actually used?)
 	DW_EH_PE_aligned  = 0x50,
-	// Pointer points to address of real value
+	/// Pointer points to address of real value
 	DW_EH_PE_indirect = 0x80
 };
+/**
+ * Returns the addressing mode component of this encoding.
+ */
 static inline enum dwarf_data_relative get_base(unsigned char x)
 {
 	return (enum dwarf_data_relative)(x & 0x70);
 }
+/**
+ * Returns whether an encoding represents an indirect address.
+ */
 static int is_indirect(unsigned char x)
 {
-	return (x & DW_EH_PE_indirect);
+	return ((x & DW_EH_PE_indirect) == DW_EH_PE_indirect);
 }
 
+/**
+ * Returns the size of a fixed-size encoding.  This function will abort if
+ * called with a value that is not a fixed-size encoding.
+ */
 static inline int dwarf_size_of_fixed_size_field(unsigned char type)
 {
-	// Low three bits indicate size...
-	switch (type & 7)
+	switch (get_encoding(type))
 	{
+		default: abort();
+		case DW_EH_PE_sdata2: 
 		case DW_EH_PE_udata2: return 2;
+		case DW_EH_PE_sdata4:
 		case DW_EH_PE_udata4: return 4;
+		case DW_EH_PE_sdata8:
 		case DW_EH_PE_udata8: return 8;
 		case DW_EH_PE_absptr: return sizeof(void*);
 	}
-	abort();
 }
 
 /** 
  * Read an unsigned, little-endian, base-128, DWARF value.  Updates *data to
- * point to the end of the value.
+ * point to the end of the value.  Stores the number of bits read in the value
+ * pointed to by b, allowing you to determine the value of the highest bit, and
+ * therefore the sign of a signed value.
+ *
+ * This function is not intended to be called directly.  Use read_sleb128() or
+ * read_uleb128() for reading signed and unsigned versions, respectively.
  */
-static uint64_t read_leb128(unsigned char** data, int *b)
+static uint64_t read_leb128(dw_eh_ptr_t *data, int *b)
 {
 	uint64_t uleb = 0;
 	unsigned int bit = 0;
@@ -112,14 +156,23 @@ static uint64_t read_leb128(unsigned char** data, int *b)
 	return uleb;
 }
 
-static int64_t read_uleb128(unsigned char** data)
+/**
+ * Reads an unsigned little-endian base-128 value starting at the address
+ * pointed to by *data.  Updates *data to point to the next byte after the end
+ * of the variable-length value.
+ */
+static int64_t read_uleb128(dw_eh_ptr_t *data)
 {
 	int b;
 	return read_leb128(data, &b);
 }
 
-
-static int64_t read_sleb128(unsigned char** data)
+/**
+ * Reads a signed little-endian base-128 value starting at the address pointed
+ * to by *data.  Updates *data to point to the next byte after the end of the
+ * variable-length value.
+ */
+static int64_t read_sleb128(dw_eh_ptr_t *data)
 {
 	int bits;
 	// Read as if it's signed
@@ -132,8 +185,12 @@ static int64_t read_sleb128(unsigned char** data)
 	}
 	return (int64_t)uleb;
 }
-
-static uint64_t read_value(char encoding, unsigned char **data)
+/**
+ * Reads a value using the specified encoding from the address pointed to by
+ * *data.  Updates the value of *data to point to the next byte after the end
+ * of the data.
+ */
+static uint64_t read_value(char encoding, dw_eh_ptr_t *data)
 {
 	enum dwarf_data_encoding type = get_encoding(encoding);
 	uint64_t v;
@@ -153,6 +210,7 @@ static uint64_t read_value(char encoding, unsigned char **data)
 		READ(DW_EH_PE_sdata8, int64_t)
 		READ(DW_EH_PE_absptr, intptr_t)
 #undef READ
+		// Read variable-length types
 		case DW_EH_PE_sleb128:
 			v = read_sleb128(data);
 			break;
@@ -165,7 +223,17 @@ static uint64_t read_value(char encoding, unsigned char **data)
 	return v;
 }
 
-static uint64_t resolve_indirect_value(_Unwind_Context *c, unsigned char encoding, int64_t v, dw_eh_ptr_t start)
+/**
+ * Resolves an indirect value.  This expects an unwind context, an encoding, a
+ * decoded value, and the start of the region as arguments.  The returned value
+ * is a pointer to the address identified by the encoded value.
+ *
+ * If the encoding does not specify an indirect value, then this returns v.
+ */
+static uint64_t resolve_indirect_value(_Unwind_Context *c,
+                                       unsigned char encoding,
+                                       int64_t v,
+                                       dw_eh_ptr_t start)
 {
 	switch (get_base(encoding))
 	{
@@ -195,6 +263,9 @@ static uint64_t resolve_indirect_value(_Unwind_Context *c, unsigned char encodin
 }
 
 
+/**
+ * Reads an encoding and a value, updating *data to point to the next byte.  
+ */
 static inline void read_value_with_encoding(_Unwind_Context *context,
                                             dw_eh_ptr_t *data,
                                             uint64_t *out)
@@ -208,19 +279,41 @@ static inline void read_value_with_encoding(_Unwind_Context *context,
 	*out = resolve_indirect_value(context, encoding, *out, start);
 }
 
-
+/**
+ * Structure storing a decoded language-specific data area.  Use parse_lsda()
+ * to generate an instance of this structure from the address returned by the
+ * generic unwind library.  
+ *
+ * You should not need to inspect the fields of this structure directly if you
+ * are just using this header.  The structure stores the locations of the
+ * various tables used for unwinding exceptions and is used by the functions
+ * for reading values from these tables.
+ */
 struct dwarf_eh_lsda
 {
+	/// The start of the region.  This is a cache of the value returned by
+	/// _Unwind_GetRegionStart().
 	dw_eh_ptr_t region_start;
+	/// The start of the landing pads table.
 	dw_eh_ptr_t landing_pads;
+	/// The start of the type table.
 	dw_eh_ptr_t type_table;
+	/// The encoding used for entries in the type tables.
 	unsigned char type_table_encoding;
+	/// The location of the call-site table.
 	dw_eh_ptr_t call_site_table;
+	/// The location of the action table.
 	dw_eh_ptr_t action_table;
+	/// The encoding used for entries in the call-site table.
 	unsigned char callsite_encoding;
 };
 
-static inline struct dwarf_eh_lsda parse_lsda(_Unwind_Context *context, unsigned char *data)
+/**
+ * Parse the header on the language-specific data area and return a structure
+ * containing the addresses and encodings of the various tables.
+ */
+static inline struct dwarf_eh_lsda parse_lsda(_Unwind_Context *context,
+                                              unsigned char *data)
 {
 	struct dwarf_eh_lsda lsda;
 
@@ -261,25 +354,39 @@ static inline struct dwarf_eh_lsda parse_lsda(_Unwind_Context *context, unsigned
 	return lsda;
 }
 
+/**
+ * Structure representing an action to be performed while unwinding.  This
+ * contains the address that should be unwound to and the action record that
+ * provoked this action.
+ */
 struct dwarf_eh_action
 {
+	/** 
+	 * The address that this action directs should be the new program counter
+	 * value after unwinding.
+	 */
 	dw_eh_ptr_t landing_pad;
+	/// The address of the action record.
 	dw_eh_ptr_t action_record;
 };
 
 /**
  * Look up the landing pad that corresponds to the current invoke.
- * Returns true if record exists.
+ * Returns true if record exists.  The context is provided by the generic
+ * unwind library and the lsda should be the result of a call to parse_lsda().
+ *
+ * The action record is returned via the result parameter.  
  */
-static bool 
-	dwarf_eh_find_callsite(struct _Unwind_Context *context,
-                           struct dwarf_eh_lsda *lsda,
-                           struct dwarf_eh_action *result)
+static bool dwarf_eh_find_callsite(struct _Unwind_Context *context,
+                                   struct dwarf_eh_lsda *lsda,
+                                   struct dwarf_eh_action *result)
 {
-    result->action_record = 0;
-    result->landing_pad = 0;
+	result->action_record = 0;
+	result->landing_pad = 0;
+	// The current instruction pointer offset within the region
 	uint64_t ip = _Unwind_GetIP(context) - _Unwind_GetRegionStart(context);
 	unsigned char *callsite_table = (unsigned char*)lsda->call_site_table;
+
 	while (callsite_table <= lsda->action_table)
 	{
 		// Once again, the layout deviates from the spec.
@@ -287,20 +394,25 @@ static bool
 		call_site_start = read_value(lsda->callsite_encoding, &callsite_table);
 		call_site_size = read_value(lsda->callsite_encoding, &callsite_table);
 
-		// Call site entries are started
+		// Call site entries are sorted, so if we find a call site that's after
+		// the current instruction pointer then there is no action associated
+		// with this call and we should unwind straight through this frame
+		// without doing anything.
 		if (call_site_start > ip) { break; }
 
+		// Read the address of the landing pad and the action from the call
+		// site table.
 		landing_pad = read_value(lsda->callsite_encoding, &callsite_table);
 		action = read_uleb128(&callsite_table);
 
-        // we shold not include call_site_start (begin of the region)
-        // address in ip range. For each call site
-        //
-        // address1: call proc
-        // address2: next instruction
-        //
-        // call stack contains address2 and not address1.
-        // address1 can be at the end of another EH region.
+		// We should not include the call_site_start (beginning of the region)
+		// address in the ip range. For each call site:
+		//
+		// address1: call proc
+		// address2: next instruction
+		//
+		// The call stack contains address2 and not address1, address1 can be
+		// at the end of another EH region.
 		if (call_site_start < ip && ip <= call_site_start + call_site_size)
 		{
 			if (action)
@@ -320,3 +432,20 @@ static bool
 	}
 	return false;
 }
+
+/// Defines an exception class from 8 bytes (endian independent)
+#define EXCEPTION_CLASS(a,b,c,d,e,f,g,h) \
+	(((uint64_t)a << 56) +\
+	 ((uint64_t)b << 48) +\
+	 ((uint64_t)c << 40) +\
+	 ((uint64_t)d << 32) +\
+	 ((uint64_t)e << 24) +\
+	 ((uint64_t)f << 16) +\
+	 ((uint64_t)g << 8) +\
+	 ((uint64_t)h))
+
+#define GENERIC_EXCEPTION_CLASS(e,f,g,h) \
+	 ((uint32_t)e << 24) +\
+	 ((uint32_t)f << 16) +\
+	 ((uint32_t)g << 8) +\
+	 ((uint32_t)h)

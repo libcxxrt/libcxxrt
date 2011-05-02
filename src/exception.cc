@@ -7,10 +7,13 @@
 #include "dwarf_eh.h"
 
 
-namespace std {
-    void unexpected();
+namespace std
+{
+	void unexpected();
 }
+
 extern "C" std::type_info *__cxa_current_exception_type();
+
 extern "C" char* __cxa_demangle(const char* mangled_name,
                                 char* buf,
                                 size_t* n,
@@ -24,12 +27,16 @@ extern "C" char* __cxa_demangle(const char* mangled_name,
  * because we aim for ABI-compatibility with the GNU implementation, and
  * various checks may test for equality of the class, which is incorrect.
  */
-static const uint64_t exception_class = *(int64_t*)"GNUCC++\0";
+static const uint64_t exception_class =
+	EXCEPTION_CLASS('G', 'N', 'U', 'C', 'C', '+', '+', '\0');
 /**
  * The low four bytes of the exception class, indicating that we conform to the
- * Itanium C++ ABI.  
+ * Itanium C++ ABI.  This is currently unused, but should be used in the future
+ * if we change our exception class, to allow this library and libsupc++ to be
+ * linked to the same executable and both to interoperate.
  */
-static const uint32_t abi_exception_class = *(int32_t*)"C++\0";
+static const uint32_t abi_exception_class = 
+	GENERIC_EXCEPTION_CLASS('C', '+', '+', '\0');
 
 namespace std
 {
@@ -54,6 +61,17 @@ typedef void (*terminate_handler)();
  * defined by the Itanium ABI spec, so should be interoperable with any other
  * implementation of this spec, such as GNU libsupc++.
  *
+ * This structure is allocated when an exception is thrown.  Unwinding happens
+ * in two phases, the first looks for a handler and the second installs the
+ * context.  This structure stores a cache of the handler location between
+ * phase 1 and phase 2.  Unfortunately, cleanup information is not cached, so
+ * must be looked up in both phases.  This happens for two reasons.  The first
+ * is that we don't know how many frames containing cleanups there will be, and
+ * we should avoid dynamic allocation during unwinding (the exception may be
+ * reporting that we've run out of memory).  The second is that finding
+ * cleanups is much cheaper than finding handlers, because we don't have to
+ * look at the type table at all.
+ *
  * Note: Several fields of this structure have not-very-informative names.
  * These are taken from the ABI spec and have not been changed to make it
  * easier for people referring to to the spec while reading this code.
@@ -68,43 +86,66 @@ struct __cxa_exception
 	unexpected_handler unexpectedHandler;
 	/** Hander called to terminate. */
 	terminate_handler terminateHandler;
-	/** Next exception in the list.  If an exception is thrown inside a catch
+	/**
+	 * Next exception in the list.  If an exception is thrown inside a catch
 	 * block and caught in a nested catch, this points to the exception that
-	 * will be handled after the inner catch block completes. */
+	 * will be handled after the inner catch block completes.
+	 */
 	__cxa_exception *nextException;
-
-	/** The number of handlers that currently have references to this
+	/**
+	 * The number of handlers that currently have references to this
 	 * exception.  The top (non-sign) bit of this is used as a flag to indicate
 	 * that the exception is being rethrown, so should not be deleted when its
-	 * handler count reaches 0 (which it doesn't with the top bit set).*/
+	 * handler count reaches 0 (which it doesn't with the top bit set).
+	 */
 	int handlerCount;
-	/** The selector value to be returned when installing the catch handler.
+	/**
+	 * The selector value to be returned when installing the catch handler.
 	 * Used at the call site to determine which catch() block should execute.
-	 * This is found in phase 1 of unwinding then installed in phase 2.*/
+	 * This is found in phase 1 of unwinding then installed in phase 2.
+	 */
 	int handlerSwitchValue;
+	/**
+	 * The action record for the catch.  This is cached during phase 1
+	 * unwinding.
+	 */
 	const char *actionRecord;
-	/** Pointer to the language-specific data area (LSDA) for the handler
+	/**
+	 * Pointer to the language-specific data area (LSDA) for the handler
 	 * frame.  This is unused in this implementation, but set for ABI
-	 * compatibility in case we want to mix code in very weird ways. */
+	 * compatibility in case we want to mix code in very weird ways.
+	 */
 	const char *languageSpecificData;
 	/** The cached landing pad for the catch handler.*/
 	void *catchTemp;
-	/** The pointer that will be returned as the pointer to the object.  When
+	/**
+	 * The pointer that will be returned as the pointer to the object.  When
 	 * throwing a class and catching a virtual superclass (for example), we
-	 * need to adjust the thrown pointer to make it all work correctly. */
+	 * need to adjust the thrown pointer to make it all work correctly.
+	 */
 	void *adjustedPtr;
-
 	/** The language-agnostic part of the exception header. */
 	_Unwind_Exception unwindHeader;
 };
 
 /**
  * ABI-specified globals structure.  Returned by the __cxa_get_globals()
- * function and its fast variant.
+ * function and its fast variant.  This is a per-thread structure - every
+ * thread will have one lazily allocated.
+ *
+ * This structure is defined by the ABI, so may be used outside of this
+ * library.
  */
 struct __cxa_eh_globals
 {
+	/**
+	 * A linked list of exceptions that are currently caught.  There may be
+	 * several of these in nested catch() blocks.
+	 */
 	__cxa_exception *caughtExceptions;
+	/**
+	 * The number of uncaught exceptions.
+	 */
 	unsigned int uncaughtExceptions;
 };
 
@@ -123,11 +164,13 @@ struct __cxa_thread_info
 	terminate_handler terminateHandler;
 	/** The unexpected exception handler for this thread. */
 	unexpected_handler unexpectedHandler;
-	/** The number of emergency buffers held by this thread.  This is 0 in
+	/**
+	 * The number of emergency buffers held by this thread.  This is 0 in
 	 * normal operation - the emergency buffers are only used when malloc()
 	 * fails to return memory for allocating an exception.  Threads are not
 	 * permitted to hold more than 4 emergency buffers (as per recommendation
-	 * in ABI spec).*/
+	 * in ABI spec [3.3.1]).
+	 */
 	int emergencyBuffersHeld;
 	/**
 	 * The public part of this structure, accessible from outside of this
@@ -144,10 +187,22 @@ static unexpected_handler unexpectedHandler = abort;
 /** Key used for thread-local data. */
 static pthread_key_t eh_key;
 
+/**
+ * The type of a handler that has been found.
+ */
 typedef enum
 {
+	/** No handler. */
 	handler_none,
+	/**
+	 * A cleanup - the exception will propagate through this frame, but code
+	 * must be run when this happens.
+	 */
 	handler_cleanup,
+	/**
+	 * A catch statement.  The exception will not propagate past this frame
+	 * (without an explicit rethrow).
+	 */
 	handler_catch
 } handler_type;
 
@@ -301,6 +356,9 @@ static char *emergency_malloc(size_t size)
 				break;
 			}
 		}
+		// If there still isn't a buffer available, then sleep on the condition
+		// variable.  This will be signalled when another thread releases one
+		// of the emergency buffers.
 		if (buffer < 0)
 		{
 			pthread_cond_wait(&emergency_malloc_wait, &emergency_malloc_lock);
@@ -331,7 +389,8 @@ static void emergency_malloc_free(char *ptr)
 			break;
 		}
 	}
-	assert(buffer > 0 && "Trying to free something that is not an emergency buffer!");
+	assert(buffer > 0 &&
+	       "Trying to free something that is not an emergency buffer!");
 	// emergency_malloc() is expected to return 0-initialized data.  We don't
 	// zero the buffer when allocating it, because the static buffers will
 	// begin life containing 0 values.
@@ -339,14 +398,19 @@ static void emergency_malloc_free(char *ptr)
 	// Signal the condition variable to wake up any threads that are blocking
 	// waiting for some space in the emergency buffer
 	pthread_mutex_lock(&emergency_malloc_lock);
-	buffer_allocated[buffer] = true;
+	// In theory, we don't need to do this with the lock held.  In practice,
+	// our array of bools will probably be updated using 32-bit or 64-bit
+	// memory operations, so this update may clobber adjacent values.
+	buffer_allocated[buffer] = false;
 	pthread_cond_signal(&emergency_malloc_wait);
 	pthread_mutex_unlock(&emergency_malloc_lock);
 }
 
 /**
  * Allocates an exception structure.  Returns a pointer to the space that can
- * be used to store an object of thrown_size bytes.
+ * be used to store an object of thrown_size bytes.  This function will use an
+ * emergency buffer if malloc() fails, and may block if there are no such
+ * buffers available.
  */
 extern "C" void *__cxa_allocate_exception(size_t thrown_size)
 {
@@ -358,6 +422,8 @@ extern "C" void *__cxa_allocate_exception(size_t thrown_size)
 	if (0 == buffer)
 	{
 		buffer = emergency_malloc(size);
+		// This is only reached if the allocation is greater than 1KB, and
+		// anyone throwing objects that big really should know better.  
 		if (0 == buffer)
 		{
 			fprintf(stderr, "Out of memory attempting to allocate exception\n");
@@ -379,7 +445,7 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 {
 	__cxa_exception *ex = ((__cxa_exception*)thrown_exception) - 1;
 
-	// Free the 
+	// Free the object that was thrown, calling its destructor
 	if (0 != ex->exceptionDestructor)
 	{
 		try
@@ -396,7 +462,8 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 	char *e = (char*)ex;
 	// If this allocation is within the address range of the emergency buffer,
 	// don't call free() because it was not allocated with malloc()
-	if ((e > emergency_buffer) && (e < (emergency_buffer + sizeof(emergency_buffer))))
+	if ((e > emergency_buffer) &&
+	    (e < (emergency_buffer + sizeof(emergency_buffer))))
 	{
 		emergency_malloc_free(e);
 	}
@@ -417,7 +484,8 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 static _Unwind_Reason_Code trace(struct _Unwind_Context *context, void *c)
 {
 	Dl_info myinfo;
-	int mylookup = dladdr((void*)(uintptr_t)__cxa_current_exception_type, &myinfo);
+	int mylookup =
+		dladdr((void*)(uintptr_t)__cxa_current_exception_type, &myinfo);
 	void *ip = (void*)_Unwind_GetIP(context);
 	Dl_info info;
 	if (dladdr(ip, &info) != 0)
@@ -449,7 +517,7 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 			break;
 		case _URC_END_OF_STACK:
 			fprintf(stderr, "Terminating due to uncaught exception %p", 
-					thrown_exception);
+					(void*)thrown_exception);
 	
 			size_t bufferSize = 128;
 			char *demangled = (char*)malloc(bufferSize);
@@ -480,8 +548,19 @@ extern "C" void __cxa_throw(void *thrown_exception,
 
 	__cxa_thread_info *info = thread_info();
 
+	// Cache the handlers, the thread-local versions if they are set, the
+	// global ones if not.  This is required so that calls to set_unexpected()
+	// or set_terminate() do not affect exceptions currently being propagated.
 	ex->unexpectedHandler = info->unexpectedHandler;
+	if (0 == ex->unexpectedHandler)
+	{
+		ex->unexpectedHandler = unexpectedHandler;
+	}
 	ex->terminateHandler  = info->terminateHandler;
+	if (0 == ex->terminateHandler)
+	{
+		ex->terminateHandler = terminateHandler;
+	}
 
 	ex->exceptionType = tinfo;
 	
@@ -493,6 +572,9 @@ extern "C" void __cxa_throw(void *thrown_exception,
 	info->globals.uncaughtExceptions++;
 
 	_Unwind_Reason_Code err = _Unwind_RaiseException(&ex->unwindHeader);
+	// The _Unwind_RaiseException() function should not return, it should
+	// unwind the stack past this function.  If it does return, then something
+	// has gone wrong.
 	report_failure(err, ex);
 }
 
@@ -516,7 +598,8 @@ extern "C" void __cxa_rethrow()
 
 	if (0 == ex)
 	{
-		fprintf(stderr, "Attempting to rethrow an exception that doesn't exist!\n");
+		fprintf(stderr,
+		        "Attempting to rethrow an exception that doesn't exist!\n");
 		std::terminate();
 	}
 
@@ -553,7 +636,7 @@ static std::type_info *get_type_info_entry(_Unwind_Context *context,
 	// Read the value, but it's probably an indirect reference...
 	int64_t offset = read_value(lsda->type_table_encoding, &record);
 
-	// If the entry is 0, don't try to dereference it.  That would be bad.
+	// (If the entry is 0, don't try to dereference it.  That would be bad.)
 	if (offset == 0) { return 0; }
 
 	// ...so we need to resolve it
@@ -567,13 +650,16 @@ static std::type_info *get_type_info_entry(_Unwind_Context *context,
  * object.  If ex is 0 then it is assumed to be a foreign exception and only
  * matches cleanups.
  */
-static bool check_type_signature(__cxa_exception *ex, const std::type_info *type)
+static bool check_type_signature(__cxa_exception *ex,
+                                 const std::type_info *type)
 {
+	// TODO: For compatibility with the GNU implementation, we should move this
+	// out into a __do_catch() virtual function in std::type_info
 	void *exception_ptr = (void*)(ex+1);
     const std::type_info *ex_type = ex->exceptionType;
 
 	const __pointer_type_info *ptr_type =
-        dynamic_cast<const __pointer_type_info*>(ex_type);
+		dynamic_cast<const __pointer_type_info*>(ex_type);
 	if (0 != ptr_type)
 	{
 		exception_ptr = *(void**)exception_ptr;
@@ -583,7 +669,10 @@ static bool check_type_signature(__cxa_exception *ex, const std::type_info *type
 	// Note: A 0 here is a catchall, not a cleanup, so we return true to
 	// indicate that we found a catch.
 	//
-	// TODO: Provide a class for matching against foreign exceptions.
+	// TODO: Provide a class for matching against foreign exceptions.  This is
+	// already done in libobjc2, allowing C++ exceptions to be boxed as
+	// Objective-C objects.  We should do something similar, allowing foreign
+	// exceptions to be wrapped in a C++ exception and delivered.
 	if (0 == type)
 	{
 		if (ex)
@@ -595,25 +684,27 @@ static bool check_type_signature(__cxa_exception *ex, const std::type_info *type
 
 	if (0 == ex) { return false; }
 
-    const __pointer_type_info *target_ptr_type =
-        dynamic_cast<const __pointer_type_info*>(type);
+	const __pointer_type_info *target_ptr_type =
+		dynamic_cast<const __pointer_type_info*>(type);
 
-    if (0 != ptr_type && 0 != target_ptr_type)
-    {
-        if (ptr_type->__flags & ~target_ptr_type->__flags) {
-            // handler pointer is less qualified
-            return false;
-        }
+	if (0 != ptr_type && 0 != target_ptr_type)
+	{
+		if (ptr_type->__flags & ~target_ptr_type->__flags)
+		{
+			// Handler pointer is less qualified
+			return false;
+		}
 
-        // special case for void* handler
-        if(*target_ptr_type->__pointee == typeid(void)) {
-            ex->adjustedPtr = exception_ptr;
-            return true;
-        }
+		// Special case for void* handler.  
+		if(*target_ptr_type->__pointee == typeid(void))
+		{
+			ex->adjustedPtr = exception_ptr;
+			return true;
+		}
 
-        ex_type = ptr_type->__pointee;
-        type = target_ptr_type->__pointee;
-    }
+		ex_type = ptr_type->__pointee;
+		type = target_ptr_type->__pointee;
+	}
 
 	// If the types are the same, no casting is needed.
 	if (*type == *ex_type)
@@ -623,16 +714,16 @@ static bool check_type_signature(__cxa_exception *ex, const std::type_info *type
 	}
 
 	const __class_type_info *cls_type =
-        dynamic_cast<const __class_type_info*>(ex_type);
+		dynamic_cast<const __class_type_info*>(ex_type);
 	const __class_type_info *target_cls_type =
-        dynamic_cast<const __class_type_info*>(type);
+		dynamic_cast<const __class_type_info*>(type);
 
 	if (0 != cls_type &&
-        0 != target_cls_type &&
-        cls_type->can_cast_to(target_cls_type))
+		0 != target_cls_type &&
+		cls_type->can_cast_to(target_cls_type))
 	{
 		ex->adjustedPtr = cls_type->cast_to(exception_ptr, target_cls_type);
-        return true;
+		return true;
 	}
 	return false;
 }
@@ -727,13 +818,15 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	// _Unwind_Exception.
 	bool foreignException = exceptionClass != exception_class;
 
+	// If this isn't a foreign exception, then we have a C++ exception structure
 	if (!foreignException)
 	{
-		ex = (__cxa_exception*) ((char*)exceptionObject - offsetof(struct
-					__cxa_exception, unwindHeader));
+		ex = (__cxa_exception*)((char*)exceptionObject -
+		                        offsetof(struct __cxa_exception, unwindHeader));
 	}
 
-	unsigned char *lsda_addr = (unsigned char*)_Unwind_GetLanguageSpecificData(context);
+	unsigned char *lsda_addr =
+		(unsigned char*)_Unwind_GetLanguageSpecificData(context);
 
 	// No LSDA implies no landing pads - try the next frame
 	if (0 == lsda_addr) { return _URC_CONTINUE_UNWIND; }
@@ -760,16 +853,16 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	if (actions & _UA_SEARCH_PHASE)
 	{
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
+
 		if (!dwarf_eh_find_callsite(context, &lsda, &action))
-        {
-            // EH range not found. This happens if exception is thrown
-            // and not catched inside cleanup (destructor).
-            // We should call terminate() in this case
-            // catchTemp (landing pad) field of exception object will
-            // contain null when personality function will be called
-            // with _UA_HANDLER_FRAME action
-            return _URC_HANDLER_FOUND;
-        }
+		{
+			// EH range not found. This happens if exception is thrown and not
+			// caught inside a cleanup (destructor).  We should call
+			// terminate() in this case.  The catchTemp (landing pad) field of
+			// exception object will contain null when personality function is
+			// called with _UA_HANDLER_FRAME action for phase 2 unwinding.  
+			return _URC_HANDLER_FOUND;
+		}
 
 		handler_type found_handler = check_action_record(context, &lsda,
 				action.action_record, ex, &selector);
@@ -799,8 +892,7 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	// context for a cleanup.
 	if (!(actions & _UA_HANDLER_FRAME))
 	{
-        // cleanup
-
+		// cleanup
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
 		dwarf_eh_find_callsite(context, &lsda, &action);
 		if (0 == action.landing_pad) { return _URC_CONTINUE_UNWIND; }
@@ -809,17 +901,17 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 		// Ignore handlers this time.
 		if (found_handler != handler_cleanup) { return _URC_CONTINUE_UNWIND; }
 	}
-    else if (ex->catchTemp == 0)
-    {
-        // uncaught exception in claenup, calling terminate
-        std::terminate();
-    }
 	else if (foreignException)
 	{
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
-        dwarf_eh_find_callsite(context, &lsda, &action);
+		dwarf_eh_find_callsite(context, &lsda, &action);
 		check_action_record(context, &lsda, action.action_record, ex,
 				&selector);
+	}
+	else if (ex->catchTemp == 0)
+	{
+		// Uncaught exception in cleanup, calling terminate
+		std::terminate();
 	}
 	else
 	{
@@ -832,13 +924,11 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 
 
 	_Unwind_SetIP(context, (unsigned long)action.landing_pad);
-	_Unwind_SetGR(context, __builtin_eh_return_data_regno(0), (unsigned long)exceptionObject);
+	_Unwind_SetGR(context, __builtin_eh_return_data_regno(0),
+	              (unsigned long)exceptionObject);
 	_Unwind_SetGR(context, __builtin_eh_return_data_regno(1), selector);
 
 	return _URC_INSTALL_CONTEXT;
-
-
-	exit(0);
 }
 
 /**
@@ -853,7 +943,7 @@ extern "C" void *__cxa_begin_catch(void *e) throw()
 #else
 extern "C" void *__cxa_begin_catch(void *e)
 #endif
-{ 
+{
 	// Decrement the uncaught exceptions count
 	__cxa_eh_globals *globals = __cxa_get_globals();
 	globals->uncaughtExceptions--;
@@ -861,13 +951,14 @@ extern "C" void *__cxa_begin_catch(void *e)
 
 	if (exceptionObject->exception_class == exception_class)
 	{
-		__cxa_exception *ex = (__cxa_exception*)
-			((char*)exceptionObject - offsetof(struct __cxa_exception, unwindHeader));
+		__cxa_exception *ex = (__cxa_exception*) ((char*)exceptionObject -
+			offsetof(struct __cxa_exception, unwindHeader));
 
 		if (ex->handlerCount == 0)
 		{
-			// Add this to the front of the list of exceptions being handled and
-			// increment its handler count so that it won't be deleted prematurely.
+			// Add this to the front of the list of exceptions being handled
+			// and increment its handler count so that it won't be deleted
+			// prematurely.
 			ex->nextException = globals->caughtExceptions;
 			globals->caughtExceptions = ex;
 		}
@@ -952,8 +1043,9 @@ extern "C" void __cxa_end_catch()
 		globals->caughtExceptions = ex->nextException;
 		if (deleteException)
 		{
-			// __cxa_free_exception() expects to be passed the thrown object, which
-			// immediately follows the exception, not the exception itself
+			// __cxa_free_exception() expects to be passed the thrown object,
+			// which immediately follows the exception, not the exception
+			// itself
 			__cxa_free_exception(ex+1);
 		}
 	}
@@ -979,8 +1071,8 @@ extern "C" void __cxa_call_unexpected(void*exception)
 	_Unwind_Exception *exceptionObject = (_Unwind_Exception*)exception;
 	if (exceptionObject->exception_class == exception_class)
 	{
-		__cxa_exception *ex = (__cxa_exception*)
-			((char*)exceptionObject - offsetof(struct __cxa_exception, unwindHeader));
+		__cxa_exception *ex = (__cxa_exception*) ((char*)exceptionObject -
+				offsetof(struct __cxa_exception, unwindHeader));
 		if (ex->unexpectedHandler)
 		{
 			ex->unexpectedHandler();
@@ -1002,15 +1094,25 @@ extern "C" void *__cxa_get_exception_ptr(void *exceptionObject)
 		offsetof(struct __cxa_exception, unwindHeader)))->adjustedPtr;
 }
 
-
+/**
+ * As an extension, we provide the ability for the unexpected and terminate
+ * handlers to be thread-local.  We default to the standards-compliant
+ * behaviour where they are global.
+ */
 static bool thread_local_handlers = false;
 
 namespace pathscale
 {
-	void set_use_thread_local_handlers(bool flag)
+	/**
+	 * Sets whether unexpected and terminate handlers should be thread-local.
+	 */
+	void set_use_thread_local_handlers(bool flag) throw()
 	{
 		thread_local_handlers = flag;
 	}
+	/**
+	 * Sets a thread-local unexpected handler.  
+	 */
 	unexpected_handler set_unexpected(unexpected_handler f) throw()
 	{
 		static __cxa_thread_info *info = thread_info();
@@ -1018,6 +1120,9 @@ namespace pathscale
 		info->unexpectedHandler = f;
 		return old;
 	}
+	/**
+	 * Sets a thread-local terminate handler.  
+	 */
 	terminate_handler set_terminate(terminate_handler f) throw()
 	{
 		static __cxa_thread_info *info = thread_info();
@@ -1029,17 +1134,28 @@ namespace pathscale
 
 namespace std
 {
+	/**
+	 * Sets the function that will be called when an exception specification is
+	 * violated.
+	 */
 	unexpected_handler set_unexpected(unexpected_handler f) throw()
 	{
 		if (thread_local_handlers) { return pathscale::set_unexpected(f); }
 
 		return __sync_lock_test_and_set(&unexpectedHandler, f);
 	}
+	/**
+	 * Sets the function that is called to terminate the program.
+	 */
 	terminate_handler set_terminate(terminate_handler f) throw()
 	{
 		if (thread_local_handlers) { return pathscale::set_terminate(f); }
 		return __sync_lock_test_and_set(&terminateHandler, f);
 	}
+	/**
+	 * Terminates the program, calling a custom terminate implementation if
+	 * required.
+	 */
 	void terminate()
 	{
 		static __cxa_thread_info *info = thread_info_fast();
@@ -1052,6 +1168,11 @@ namespace std
 		}
 		terminateHandler();
 	}
+	/**
+	 * Called when an unexpected exception is encountered (i.e. an exception
+	 * violates an exception specification).  This calls abort() unless a
+	 * custom handler has been set..
+	 */
 	void unexpected()
 	{
 		static __cxa_thread_info *info = thread_info_fast();
@@ -1064,9 +1185,14 @@ namespace std
 		}
 		unexpectedHandler();
 	}
-    bool uncaught_exception() throw() {
-        __cxa_thread_info *info = thread_info();
-        return info->globals.uncaughtExceptions != 0;
-    }
+	/**
+	 * Returns whether there are any exceptions currently being thrown that
+	 * have not been caught.  This can occur inside a nested catch statement.
+	 */
+	bool uncaught_exception() throw()
+	{
+		__cxa_thread_info *info = thread_info();
+		return info->globals.uncaughtExceptions != 0;
+	}
 
 }

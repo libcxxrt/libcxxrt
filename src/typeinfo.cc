@@ -47,11 +47,29 @@ ABI_NAMESPACE::__pointer_to_member_type_info::~__pointer_to_member_type_info() {
 extern "C" char    *cpp_demangle_gnu3(const char *);
 extern "C" bool    is_cpp_mangled_gnu3(const char *);
 
+/**
+ * Demangles a C++ symbol or type name.  The buffer, if non-NULL, must be
+ * allocated with malloc() and must be *n bytes or more long.  This function
+ * may call realloc() on the value pointed to by buf, and will return the
+ * length of the string via *n.
+ *
+ * The value pointed to by status is set to one of the following:
+ *
+ * 0: success
+ * -1: memory allocation failure
+ * -2: invalid mangled name
+ * -3: invalid arguments
+ */
 extern "C" char* __cxa_demangle(const char* mangled_name,
                                 char* buf,
                                 size_t* n,
                                 int* status)
 {
+	// TODO: We should probably just be linking against libelf-tc, rather than
+	// copying their code.  This requires them to do an actual release,
+	// however, and for our changes to be pushed upstream.  We also need to
+	// call a different demangling function here depending on the ABI (e.g.
+	// ARM).
 	char *demangled = cpp_demangle_gnu3(mangled_name);
 	if (NULL != demangled)
 	{
