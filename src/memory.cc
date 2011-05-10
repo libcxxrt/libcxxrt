@@ -64,7 +64,7 @@ void* operator new(size_t size, const std::nothrow_t &) throw()
 	void *mem = malloc(size);
 	while (0 == mem)
 	{
-		if (0 == new_handl)
+		if (0 != new_handl)
 		{
 			try
 			{
