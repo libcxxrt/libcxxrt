@@ -45,7 +45,6 @@ ABI_NAMESPACE::__pointer_to_member_type_info::~__pointer_to_member_type_info() {
 
 // From libelftc
 extern "C" char    *cpp_demangle_gnu3(const char *);
-extern "C" bool    is_cpp_mangled_gnu3(const char *);
 
 /**
  * Demangles a C++ symbol or type name.  The buffer, if non-NULL, must be

@@ -8,7 +8,6 @@ set(CXXRT_SOURCES
     memory.cc
     aux.cc
     libelftc_dem_gnu3.c
-    libelftc_vstr.c
    )
 
 

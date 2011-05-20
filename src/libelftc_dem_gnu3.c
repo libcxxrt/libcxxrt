@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2007 Hyogeol Lee <hyogeollee@gmail.com>
+ * Copyright (c) 2007, 2008 Hyogeol Lee <hyogeollee@gmail.com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,8 +33,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "_libelftc.h"
-
 /**
  * @file cpp_demangle.c
  * @brief Decode IA-64 C++ ABI style implementation.
@@ -44,6 +42,20 @@
  * http://www.codesourcery.com/cxx-abi/abi.html#mangling \n
  * http://www.codesourcery.com/cxx-abi/abi-mangling.html
  */
+
+/** @brief Dynamic vector data for string. */
+struct vector_str {
+	/** Current size */
+	size_t		size;
+	/** Total capacity */
+	size_t		capacity;
+	/** String array */
+	char		**container;
+};
+
+#define BUFFER_GROWFACTOR	1.618
+#define VECTOR_DEF_CAPACITY	8
+#define	ELFTC_ISDIGIT(C) 	(isdigit((C) & 0xFF))
 
 enum type_qualifier {
 	TYPE_PTR, TYPE_REF, TYPE_CMX, TYPE_IMG, TYPE_EXT, TYPE_RST, TYPE_VAT,
@@ -89,6 +101,281 @@ struct cpp_demangle_data {
 #define	FLOAT_EXTENED_BYTES	10
 
 #define SIMPLE_HASH(x,y)	(64 * x + y)
+
+static size_t	get_strlen_sum(const struct vector_str *v);
+static bool	vector_str_grow(struct vector_str *v);
+
+static size_t
+get_strlen_sum(const struct vector_str *v)
+{
+	size_t i, len = 0;
+
+	if (v == NULL)
+		return (0);
+
+	assert(v->size > 0);
+
+	for (i = 0; i < v->size; ++i)
+		len += strlen(v->container[i]);
+
+	return (len);
+}
+
+/**
+ * @brief Deallocate resource in vector_str.
+ */
+static void
+vector_str_dest(struct vector_str *v)
+{
+	size_t i;
+
+	if (v == NULL)
+		return;
+
+	for (i = 0; i < v->size; ++i)
+		free(v->container[i]);
+
+	free(v->container);
+}
+
+/**
+ * @brief Find string in vector_str.
+ * @param v Destination vector.
+ * @param o String to find.
+ * @param l Length of the string.
+ * @return -1 at failed, 0 at not found, 1 at found.
+ */
+static int
+vector_str_find(const struct vector_str *v, const char *o, size_t l)
+{
+	size_t i;
+
+	if (v == NULL || o == NULL)
+		return (-1);
+
+	for (i = 0; i < v->size; ++i)
+		if (strncmp(v->container[i], o, l) == 0)
+			return (1);
+
+	return (0);
+}
+
+/**
+ * @brief Get new allocated flat string from vector.
+ *
+ * If l is not NULL, return length of the string.
+ * @param v Destination vector.
+ * @param l Length of the string.
+ * @return NULL at failed or NUL terminated new allocated string.
+ */
+static char *
+vector_str_get_flat(const struct vector_str *v, size_t *l)
+{
+	ssize_t elem_pos, elem_size, rtn_size;
+	size_t i;
+	char *rtn;
+
+	if (v == NULL || v->size == 0)
+		return (NULL);
+
+	if ((rtn_size = get_strlen_sum(v)) == 0)
+		return (NULL);
+
+	if ((rtn = malloc(sizeof(char) * (rtn_size + 1))) == NULL)
+		return (NULL);
+
+	elem_pos = 0;
+	for (i = 0; i < v->size; ++i) {
+		elem_size = strlen(v->container[i]);
+
+		memcpy(rtn + elem_pos, v->container[i], elem_size);
+
+		elem_pos += elem_size;
+	}
+
+	rtn[rtn_size] = '\0';
+
+	if (l != NULL)
+		*l = rtn_size;
+
+	return (rtn);
+}
+
+static bool
+vector_str_grow(struct vector_str *v)
+{
+	size_t i, tmp_cap;
+	char **tmp_ctn;
+
+	if (v == NULL)
+		return (false);
+
+	assert(v->capacity > 0);
+
+	tmp_cap = v->capacity * BUFFER_GROWFACTOR;
+
+	assert(tmp_cap > v->capacity);
+
+	if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
+		return (false);
+
+	for (i = 0; i < v->size; ++i)
+		tmp_ctn[i] = v->container[i];
+
+	free(v->container);
+
+	v->container = tmp_ctn;
+	v->capacity = tmp_cap;
+
+	return (true);
+}
+
+/**
+ * @brief Initialize vector_str.
+ * @return false at failed, true at success.
+ */
+static bool
+vector_str_init(struct vector_str *v)
+{
+
+	if (v == NULL)
+		return (false);
+
+	v->size = 0;
+	v->capacity = VECTOR_DEF_CAPACITY;
+
+	assert(v->capacity > 0);
+
+	if ((v->container = malloc(sizeof(char *) * v->capacity)) == NULL)
+		return (false);
+
+	assert(v->container != NULL);
+
+	return (true);
+}
+
+/**
+ * @brief Remove last element in vector_str.
+ * @return false at failed, true at success.
+ */
+static bool
+vector_str_pop(struct vector_str *v)
+{
+
+	if (v == NULL)
+		return (false);
+
+	if (v->size == 0)
+		return (true);
+
+	--v->size;
+
+	free(v->container[v->size]);
+	v->container[v->size] = NULL;
+
+	return (true);
+}
+
+/**
+ * @brief Push back string to vector.
+ * @return false at failed, true at success.
+ */
+static bool
+vector_str_push(struct vector_str *v, const char *str, size_t len)
+{
+
+	if (v == NULL || str == NULL)
+		return (false);
+
+	if (v->size == v->capacity && vector_str_grow(v) == false)
+		return (false);
+
+	if ((v->container[v->size] = malloc(sizeof(char) * (len + 1))) == NULL)
+		return (false);
+
+	snprintf(v->container[v->size], len + 1, "%s", str);
+
+	++v->size;
+
+	return (true);
+}
+
+/**
+ * @brief Push front org vector to det vector.
+ * @return false at failed, true at success.
+ */
+static bool
+vector_str_push_vector_head(struct vector_str *dst, struct vector_str *org)
+{
+	size_t i, j, tmp_cap;
+	char **tmp_ctn;
+
+	if (dst == NULL || org == NULL)
+		return (false);
+
+	tmp_cap = (dst->size + org->size) * BUFFER_GROWFACTOR;
+
+	if ((tmp_ctn = malloc(sizeof(char *) * tmp_cap)) == NULL)
+		return (false);
+
+	for (i = 0; i < org->size; ++i)
+		if ((tmp_ctn[i] = strdup(org->container[i])) == NULL) {
+			for (j = 0; j < i; ++j)
+				free(tmp_ctn[j]);
+
+			free(tmp_ctn);
+
+			return (false);
+		}
+
+	for (i = 0; i < dst->size; ++i)
+		tmp_ctn[i + org->size] = dst->container[i];
+
+	free(dst->container);
+
+	dst->container = tmp_ctn;
+	dst->capacity = tmp_cap;
+	dst->size += org->size;
+
+	return (true);
+}
+
+/**
+ * @brief Get new allocated flat string from vector between begin and end.
+ *
+ * If r_len is not NULL, string length will be returned.
+ * @return NULL at failed or NUL terminated new allocated string.
+ */
+static char *
+vector_str_substr(const struct vector_str *v, size_t begin, size_t end,
+    size_t *r_len)
+{
+	size_t cur, i, len;
+	char *rtn;
+
+	if (v == NULL || begin > end)
+		return (NULL);
+
+	len = 0;
+	for (i = begin; i < end + 1; ++i)
+		len += strlen(v->container[i]);
+
+	if ((rtn = malloc(sizeof(char) * (len + 1))) == NULL)
+		return (NULL);
+
+	if (r_len != NULL)
+		*r_len = len;
+
+	cur = 0;
+	for (i = begin; i < end + 1; ++i) {
+		len = strlen(v->container[i]);
+		memcpy(rtn + cur, v->container[i], len);
+		cur += len;
+	}
+	rtn[cur] = '\0';
+
+	return (rtn);
+}
 
 static void	cpp_demangle_data_dest(struct cpp_demangle_data *);
 static int	cpp_demangle_data_init(struct cpp_demangle_data *,
@@ -152,7 +439,7 @@ static int	vector_type_qualifier_init(struct vector_type_qualifier *);
 static int	vector_type_qualifier_push(struct vector_type_qualifier *,
 		    enum type_qualifier);
 
-int cpp_demangle_gnu3_push_head;
+static int cpp_demangle_gnu3_push_head;
 
 /**
  * @brief Decode the input string by IA-64 C++ ABI style.
@@ -3040,22 +3327,6 @@ hex_to_dec(char c)
 	default:
 		return (-1);
 	};
-}
-
-/**
- * @brief Test input string is mangled by IA-64 C++ ABI style.
- *
- * Test string heads with "_Z" or "_GLOBAL__I_".
- * @return Return 0 at false.
- */
-bool
-is_cpp_mangled_gnu3(const char *org)
-{
-	size_t len;
-
-	len = strlen(org);
-	return ((len > 2 && *org == '_' && *(org + 1) == 'Z') ||
-	    (len > 11 && !strncmp(org, "_GLOBAL__I_", 11)));
 }
 
 static void
