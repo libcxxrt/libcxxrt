@@ -449,7 +449,7 @@ static int cpp_demangle_gnu3_push_head;
  * @todo 1. Testing and more test case. 2. Code cleaning.
  */
 char *
-cpp_demangle_gnu3(const char *org)
+__cxa_demangle_gnu3(const char *org)
 {
 	struct cpp_demangle_data ddata;
 	ssize_t org_len;

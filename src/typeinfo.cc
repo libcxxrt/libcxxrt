@@ -44,7 +44,7 @@ ABI_NAMESPACE::__pointer_type_info::~__pointer_type_info() {}
 ABI_NAMESPACE::__pointer_to_member_type_info::~__pointer_to_member_type_info() {}
 
 // From libelftc
-extern "C" char    *cpp_demangle_gnu3(const char *);
+extern "C" char    *__cxa_demangle_gnu3(const char *);
 
 /**
  * Demangles a C++ symbol or type name.  The buffer, if non-NULL, must be
@@ -69,7 +69,7 @@ extern "C" char* __cxa_demangle(const char* mangled_name,
 	// however, and for our changes to be pushed upstream.  We also need to
 	// call a different demangling function here depending on the ABI (e.g.
 	// ARM).
-	char *demangled = cpp_demangle_gnu3(mangled_name);
+	char *demangled = __cxa_demangle_gnu3(mangled_name);
 	if (NULL != demangled)
 	{
 		size_t len = strlen(demangled);
