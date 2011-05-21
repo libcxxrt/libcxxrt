@@ -1,6 +1,6 @@
 
 set(CXXRT_SOURCES
-    cxa_demangle.cc
+    cxa_demangle.h
     dynamic_cast.cc
     exception.cc
     guard.cc
