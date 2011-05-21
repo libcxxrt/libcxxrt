@@ -1,6 +1,5 @@
 
 set(CXXRT_SOURCES
-    cxa_demangle.h
     dynamic_cast.cc
     exception.cc
     guard.cc
@@ -8,6 +7,7 @@ set(CXXRT_SOURCES
     typeinfo.cc
     memory.cc
     aux.cc
+    libelftc_dem_gnu3.c
    )
 
 
