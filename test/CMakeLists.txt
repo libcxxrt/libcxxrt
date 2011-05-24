@@ -35,6 +35,22 @@ add_test(cxxrt-test-shared-test
          ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
          ${CMAKE_CURRENT_BINARY_DIR}/test-shared-output.log)
 
+set(valgrind "valgrind -q")
+
+if(TEST_VALGRIND)
+    add_test(cxxrt-test-static-test-valgrind
+             ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
+             "${valgrind} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-static"
+             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+             ${CMAKE_CURRENT_BINARY_DIR}/test-static-output.log)
+    
+    add_test(cxxrt-test-shared-test-valgrind
+             ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
+             "${valgrind} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-shared"
+             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+             ${CMAKE_CURRENT_BINARY_DIR}/test-shared-output.log)
+endif()
+
 
 # Testing with libunwind
 option(TEST_LIBUNWIND "Test libcxxrt with libunwind" OFF)
@@ -67,5 +83,19 @@ if(TEST_LIBUNWIND)
              ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-shared
              ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
              ${CMAKE_CURRENT_BINARY_DIR}/test-libunwind-shared-output.log)
+
+    if(TEST_VALGRIND)
+        add_test(cxxrt-test-libunwind-static-test-valgrind
+                 ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
+                 "${valgrind} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-static"
+                 ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+                 ${CMAKE_CURRENT_BINARY_DIR}/test-libunwind-static-output.log)
+
+        add_test(cxxrt-test-libunwind-shared-test-valgrind
+                 ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
+                 "${valgrind} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-shared"
+                 ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+                 ${CMAKE_CURRENT_BINARY_DIR}/test-libunwind-shared-output.log)
+    endif()
 endif()
 
