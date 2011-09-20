@@ -1223,7 +1223,6 @@ namespace std
 	 */
 	void terminate()
 	{
-		fprintf(stderr, "Terminate called\n");
 		static __cxa_thread_info *info = thread_info_fast();
 		if (0 != info && 0 != info->terminateHandler)
 		{
