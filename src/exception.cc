@@ -5,149 +5,35 @@
 #include <pthread.h>
 #include "typeinfo.h"
 #include "dwarf_eh.h"
-
-
-namespace std
-{
-	void unexpected();
-}
-
-extern "C" std::type_info *__cxa_current_exception_type();
-
-extern "C" char* __cxa_demangle(const char* mangled_name,
-                                char* buf,
-                                size_t* n,
-                                int* status);
-
-
-/**
- * Class of exceptions to distinguish between this and other exception types.
- *
- * The first four characters are the vendor ID.  Currently, we use GNUC,
- * because we aim for ABI-compatibility with the GNU implementation, and
- * various checks may test for equality of the class, which is incorrect.
- */
-static const uint64_t exception_class =
-	EXCEPTION_CLASS('G', 'N', 'U', 'C', 'C', '+', '+', '\0');
-/**
- * The low four bytes of the exception class, indicating that we conform to the
- * Itanium C++ ABI.  This is currently unused, but should be used in the future
- * if we change our exception class, to allow this library and libsupc++ to be
- * linked to the same executable and both to interoperate.
- */
-static const uint32_t abi_exception_class = 
-	GENERIC_EXCEPTION_CLASS('C', '+', '+', '\0');
-
-namespace std
-{
-	// Forward declaration of standard library terminate() function used to
-	// abort execution.
-	void terminate(void);
-}
+#include "cxxabi.h"
 
 using namespace ABI_NAMESPACE;
 
-/**
- * Function type to call when an unexpected exception is encountered.
- */
-typedef void (*unexpected_handler)();
-/**
- * Function type to call when an unrecoverable condition is encountered.
- */
-typedef void (*terminate_handler)();
+extern "C" void __cxa_free_exception(void *thrown_exception);
+extern "C" void __cxa_free_dependent_exception(void *thrown_exception);
+extern "C" void* __dynamic_cast(const void *sub,
+                                const __class_type_info *src,
+                                const __class_type_info *dst,
+                                ptrdiff_t src2dst_offset);
 
 /**
- * Structure used as a header on thrown exceptions.  This is the same layout as
- * defined by the Itanium ABI spec, so should be interoperable with any other
- * implementation of this spec, such as GNU libsupc++.
- *
- * This structure is allocated when an exception is thrown.  Unwinding happens
- * in two phases, the first looks for a handler and the second installs the
- * context.  This structure stores a cache of the handler location between
- * phase 1 and phase 2.  Unfortunately, cleanup information is not cached, so
- * must be looked up in both phases.  This happens for two reasons.  The first
- * is that we don't know how many frames containing cleanups there will be, and
- * we should avoid dynamic allocation during unwinding (the exception may be
- * reporting that we've run out of memory).  The second is that finding
- * cleanups is much cheaper than finding handlers, because we don't have to
- * look at the type table at all.
- *
- * Note: Several fields of this structure have not-very-informative names.
- * These are taken from the ABI spec and have not been changed to make it
- * easier for people referring to to the spec while reading this code.
+ * The type of a handler that has been found.
  */
-struct __cxa_exception
+typedef enum
 {
-	/** Type info for the thrown object. */
-	std::type_info *exceptionType;
-	/** Destructor for the object, if one exists. */
-	void (*exceptionDestructor) (void *); 
-	/** Handler called when an exception specification is violated. */
-	unexpected_handler unexpectedHandler;
-	/** Hander called to terminate. */
-	terminate_handler terminateHandler;
+	/** No handler. */
+	handler_none,
 	/**
-	 * Next exception in the list.  If an exception is thrown inside a catch
-	 * block and caught in a nested catch, this points to the exception that
-	 * will be handled after the inner catch block completes.
+	 * A cleanup - the exception will propagate through this frame, but code
+	 * must be run when this happens.
 	 */
-	__cxa_exception *nextException;
+	handler_cleanup,
 	/**
-	 * The number of handlers that currently have references to this
-	 * exception.  The top (non-sign) bit of this is used as a flag to indicate
-	 * that the exception is being rethrown, so should not be deleted when its
-	 * handler count reaches 0 (which it doesn't with the top bit set).
+	 * A catch statement.  The exception will not propagate past this frame
+	 * (without an explicit rethrow).
 	 */
-	int handlerCount;
-	/**
-	 * The selector value to be returned when installing the catch handler.
-	 * Used at the call site to determine which catch() block should execute.
-	 * This is found in phase 1 of unwinding then installed in phase 2.
-	 */
-	int handlerSwitchValue;
-	/**
-	 * The action record for the catch.  This is cached during phase 1
-	 * unwinding.
-	 */
-	const char *actionRecord;
-	/**
-	 * Pointer to the language-specific data area (LSDA) for the handler
-	 * frame.  This is unused in this implementation, but set for ABI
-	 * compatibility in case we want to mix code in very weird ways.
-	 */
-	const char *languageSpecificData;
-	/** The cached landing pad for the catch handler.*/
-	void *catchTemp;
-	/**
-	 * The pointer that will be returned as the pointer to the object.  When
-	 * throwing a class and catching a virtual superclass (for example), we
-	 * need to adjust the thrown pointer to make it all work correctly.
-	 */
-	void *adjustedPtr;
-	/** The language-agnostic part of the exception header. */
-	_Unwind_Exception unwindHeader;
-};
-
-/**
- * ABI-specified globals structure.  Returned by the __cxa_get_globals()
- * function and its fast variant.  This is a per-thread structure - every
- * thread will have one lazily allocated.
- *
- * This structure is defined by the ABI, so may be used outside of this
- * library.
- */
-struct __cxa_eh_globals
-{
-	/**
-	 * A linked list of exceptions that are currently caught.  There may be
-	 * several of these in nested catch() blocks.
-	 */
-	__cxa_exception *caughtExceptions;
-	/**
-	 * The number of uncaught exceptions.
-	 */
-	unsigned int uncaughtExceptions;
-};
+	handler_catch
+} handler_type;
 
 /**
  * Per-thread info required by the runtime.  We store a single structure
@@ -178,6 +64,121 @@ struct __cxa_thread_info
 	 */
 	__cxa_eh_globals globals;
 };
+/**
+ * Dependent exception.  This 
+ */
+struct __cxa_dependent_exception
+{
+#if __LP64__
+	void *primaryException;
+#endif
+	std::type_info *exceptionType;
+	void (*exceptionDestructor) (void *); 
+	unexpected_handler unexpectedHandler;
+	terminate_handler terminateHandler;
+	__cxa_exception *nextException;
+	int handlerCount;
+	int handlerSwitchValue;
+	const char *actionRecord;
+	const char *languageSpecificData;
+	void *catchTemp;
+	void *adjustedPtr;
+#if !__LP64__
+	void *primaryException;
+#endif
+	_Unwind_Exception unwindHeader;
+};
+
+
+namespace std
+{
+	void unexpected();
+	class exception
+	{
+		public:
+			virtual ~exception() throw();
+			virtual const char* what() const throw();
+	};
+
+}
+
+extern "C" std::type_info *__cxa_current_exception_type();
+
+extern "C" char* __cxa_demangle(const char* mangled_name,
+                                char* buf,
+                                size_t* n,
+                                int* status);
+
+/**
+ * Class of exceptions to distinguish between this and other exception types.
+ *
+ * The first four characters are the vendor ID.  Currently, we use GNUC,
+ * because we aim for ABI-compatibility with the GNU implementation, and
+ * various checks may test for equality of the class, which is incorrect.
+ */
+static const uint64_t exception_class =
+	EXCEPTION_CLASS('G', 'N', 'U', 'C', 'C', '+', '+', '\0');
+/**
+ * Class used for dependent exceptions.  
+ */
+static const uint64_t dependent_exception_class =
+	EXCEPTION_CLASS('G', 'N', 'U', 'C', 'C', '+', '+', '\x01');
+/**
+ * The low four bytes of the exception class, indicating that we conform to the
+ * Itanium C++ ABI.  This is currently unused, but should be used in the future
+ * if we change our exception class, to allow this library and libsupc++ to be
+ * linked to the same executable and both to interoperate.
+ */
+static const uint32_t abi_exception_class = 
+	GENERIC_EXCEPTION_CLASS('C', '+', '+', '\0');
+
+static bool isCXXException(uint64_t cls)
+{
+	return (cls == exception_class) || (cls == dependent_exception_class);
+}
+
+static bool isDependentException(uint64_t cls)
+{
+	return cls == dependent_exception_class;
+}
+
+static __cxa_exception *exceptionFromPointer(void *ex)
+{
+	return (__cxa_exception*)((char*)ex -
+			offsetof(struct __cxa_exception, unwindHeader));
+}
+static __cxa_exception *realExceptionFromException(__cxa_exception *ex)
+{
+	if (!isDependentException(ex->unwindHeader.exception_class)) { return ex; }
+	return exceptionFromPointer(((__cxa_dependent_exception*)ex)->primaryException);
+}
+
+static void releaseException(__cxa_exception *exception)
+{
+	if (isDependentException(exception->unwindHeader.exception_class))
+	{
+		__cxa_free_dependent_exception(exception+1);
+		return;
+	}
+	if (__sync_sub_and_fetch(&exception->referenceCount, 1) == 0)
+	{
+		// __cxa_free_exception() expects to be passed the thrown object,
+		// which immediately follows the exception, not the exception
+		// itself
+		__cxa_free_exception(exception+1);
+	}
+}
+
+namespace std
+{
+	// Forward declaration of standard library terminate() function used to
+	// abort execution.
+	void terminate(void);
+}
+
+using namespace ABI_NAMESPACE;
+
+
 
 /** The global termination handler. */
 static terminate_handler terminateHandler = abort;
@@ -187,28 +188,6 @@ static unexpected_handler unexpectedHandler = abort;
 /** Key used for thread-local data. */
 static pthread_key_t eh_key;
 
-/**
- * The type of a handler that has been found.
- */
-typedef enum
-{
-	/** No handler. */
-	handler_none,
-	/**
-	 * A cleanup - the exception will propagate through this frame, but code
-	 * must be run when this happens.
-	 */
-	handler_cleanup,
-	/**
-	 * A catch statement.  The exception will not propagate past this frame
-	 * (without an explicit rethrow).
-	 */
-	handler_catch
-} handler_type;
-
-
-// FIXME: Put all of the ABI functions in a header.
-extern "C" void __cxa_free_exception(void *thrown_exception);
 
 /**
  * Cleanup function, allowing foreign exception handlers to correctly destroy
@@ -218,6 +197,12 @@ static void exception_cleanup(_Unwind_Reason_Code reason,
                               struct _Unwind_Exception *ex)
 {
 	__cxa_free_exception((void*)ex);
+}
+static void dependent_exception_cleanup(_Unwind_Reason_Code reason, 
+                              struct _Unwind_Exception *ex)
+{
+
+	__cxa_free_dependent_exception((void*)ex);
 }
 
 /**
@@ -406,15 +391,8 @@ static void emergency_malloc_free(char *ptr)
 	pthread_mutex_unlock(&emergency_malloc_lock);
 }
 
-/**
- * Allocates an exception structure.  Returns a pointer to the space that can
- * be used to store an object of thrown_size bytes.  This function will use an
- * emergency buffer if malloc() fails, and may block if there are no such
- * buffers available.
- */
-extern "C" void *__cxa_allocate_exception(size_t thrown_size)
+static char *alloc_or_die(size_t size)
 {
-	size_t size = thrown_size + sizeof(__cxa_exception);
 	char *buffer = (char*)calloc(1, size);
 
 	// If calloc() doesn't want to give us any memory, try using an emergency
@@ -430,9 +408,43 @@ extern "C" void *__cxa_allocate_exception(size_t thrown_size)
 			std::terminate();
 		}
 	}
+	return buffer;
+}
+static void free_exception(char *e)
+{
+	// If this allocation is within the address range of the emergency buffer,
+	// don't call free() because it was not allocated with malloc()
+	if ((e > emergency_buffer) &&
+	    (e < (emergency_buffer + sizeof(emergency_buffer))))
+	{
+		emergency_malloc_free(e);
+	}
+	else
+	{
+		free(e);
+	}
+}
 
+/**
+ * Allocates an exception structure.  Returns a pointer to the space that can
+ * be used to store an object of thrown_size bytes.  This function will use an
+ * emergency buffer if malloc() fails, and may block if there are no such
+ * buffers available.
+ */
+extern "C" void *__cxa_allocate_exception(size_t thrown_size)
+{
+	size_t size = thrown_size + sizeof(__cxa_exception);
+	char *buffer = alloc_or_die(size);
 	return buffer+sizeof(__cxa_exception);
 }
+
+extern "C" void *__cxa_allocate_dependent_exception(void)
+{
+	size_t size = sizeof(__cxa_dependent_exception);
+	char *buffer = alloc_or_die(size);
+	return buffer+sizeof(__cxa_dependent_exception);
+}
+
 /**
  * __cxa_free_exception() is called when an exception was thrown in between
  * calling __cxa_allocate_exception() and actually throwing the exception.
@@ -444,7 +456,6 @@ extern "C" void *__cxa_allocate_exception(size_t thrown_size)
 extern "C" void __cxa_free_exception(void *thrown_exception)
 {
 	__cxa_exception *ex = ((__cxa_exception*)thrown_exception) - 1;
-
 	// Free the object that was thrown, calling its destructor
 	if (0 != ex->exceptionDestructor)
 	{
@@ -459,18 +470,17 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 		}
 	}
 
-	char *e = (char*)ex;
-	// If this allocation is within the address range of the emergency buffer,
-	// don't call free() because it was not allocated with malloc()
-	if ((e > emergency_buffer) &&
-	    (e < (emergency_buffer + sizeof(emergency_buffer))))
+	free_exception((char*)ex);
+}
+
+void __cxa_free_dependent_exception(void *thrown_exception)
+{
+	__cxa_dependent_exception *ex = ((__cxa_dependent_exception*)thrown_exception) - 1;
+	if (ex->primaryException)
 	{
-		emergency_malloc_free(e);
+		__cxa_free_exception(ex->primaryException);
 	}
-	else
-	{
-		free(e);
-	}
+	free_exception((char*)ex);
 }
 
 /**
@@ -518,12 +528,27 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 		case _URC_END_OF_STACK:
 			fprintf(stderr, "Terminating due to uncaught exception %p", 
 					(void*)thrown_exception);
-	
+			thrown_exception = realExceptionFromException(thrown_exception);
+			static const __class_type_info *e_ti =
+				static_cast<const __class_type_info*>(&typeid(std::exception));
+			const __class_type_info *throw_ti =
+				dynamic_cast<const __class_type_info*>(thrown_exception->exceptionType);
+			if (throw_ti)
+			{
+				std::exception *e =
+					(std::exception*)__dynamic_cast((void*)(thrown_exception+1),
+							e_ti, throw_ti, -1);
+				if (e)
+				{
+					fprintf(stderr, " '%s'", e->what());
+				}
+			}
+
 			size_t bufferSize = 128;
 			char *demangled = (char*)malloc(bufferSize);
 			const char *mangled = thrown_exception->exceptionType->name();
 			int status;
-			__cxa_demangle(mangled, demangled, &bufferSize, &status);
+			demangled = __cxa_demangle(mangled, demangled, &bufferSize, &status);
 			fprintf(stderr, " of type %s\n", 
 				status == 0 ? (const char*)demangled : mangled);
 			if (status == 0) { free(demangled); }
@@ -534,6 +559,29 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 	}
 	std::terminate();
 }
+
+static void throw_exception(__cxa_exception *ex)
+{
+	__cxa_thread_info *info = thread_info();
+	ex->unexpectedHandler = info->unexpectedHandler;
+	if (0 == ex->unexpectedHandler)
+	{
+		ex->unexpectedHandler = unexpectedHandler;
+	}
+	ex->terminateHandler  = info->terminateHandler;
+	if (0 == ex->terminateHandler)
+	{
+		ex->terminateHandler = terminateHandler;
+	}
+	info->globals.uncaughtExceptions++;
+
+	_Unwind_Reason_Code err = _Unwind_RaiseException(&ex->unwindHeader);
+	// The _Unwind_RaiseException() function should not return, it should
+	// unwind the stack past this function.  If it does return, then something
+	// has gone wrong.
+	report_failure(err, ex);
+}
+
 
 /**
  * ABI function for throwing an exception.  Takes the object to be thrown (the
@@ -546,22 +594,7 @@ extern "C" void __cxa_throw(void *thrown_exception,
 {
 	__cxa_exception *ex = ((__cxa_exception*)thrown_exception) - 1;
 
-	__cxa_thread_info *info = thread_info();
-
-	// Cache the handlers, the thread-local versions if they are set, the
-	// global ones if not.  This is required so that calls to set_unexpected()
-	// or set_terminate() do not affect exceptions currently being propagated.
-	ex->unexpectedHandler = info->unexpectedHandler;
-	if (0 == ex->unexpectedHandler)
-	{
-		ex->unexpectedHandler = unexpectedHandler;
-	}
-	ex->terminateHandler  = info->terminateHandler;
-	if (0 == ex->terminateHandler)
-	{
-		ex->terminateHandler = terminateHandler;
-	}
-
+	ex->referenceCount = 1;
 	ex->exceptionType = tinfo;
 	
 	ex->exceptionDestructor = dest;
@@ -569,15 +602,49 @@ extern "C" void __cxa_throw(void *thrown_exception,
 	ex->unwindHeader.exception_class = exception_class;
 	ex->unwindHeader.exception_cleanup = exception_cleanup;
 
-	info->globals.uncaughtExceptions++;
-
-	_Unwind_Reason_Code err = _Unwind_RaiseException(&ex->unwindHeader);
-	// The _Unwind_RaiseException() function should not return, it should
-	// unwind the stack past this function.  If it does return, then something
-	// has gone wrong.
-	report_failure(err, ex);
+	throw_exception(ex);
 }
 
+extern "C" void __cxa_rethrow_primary_exception(void* thrown_exception)
+{
+	if (NULL == thrown_exception) { return; }
+
+	__cxa_exception *original = exceptionFromPointer(thrown_exception);
+	__cxa_dependent_exception *ex = (__cxa_dependent_exception*)__cxa_allocate_dependent_exception();
+
+	ex->primaryException = thrown_exception;
+	__cxa_increment_exception_refcount(thrown_exception);
+
+	ex->exceptionType = original->exceptionType;
+	ex->unwindHeader.exception_class = dependent_exception_class;
+	ex->unwindHeader.exception_cleanup = dependent_exception_cleanup;
+
+	throw_exception((__cxa_exception*)ex);
+}
+
+extern "C" void *__cxa_current_primary_exception(void)
+{
+	__cxa_eh_globals* globals = __cxa_get_globals();
+	__cxa_exception *ex = globals->caughtExceptions;
+
+	if (0 == ex) { return NULL; }
+	ex = realExceptionFromException(ex);
+	__sync_fetch_and_add(&ex->referenceCount, 1);
+	return ex;
+}
+
+extern "C" void __cxa_increment_exception_refcount(void* thrown_exception)
+{
+	if (NULL == thrown_exception) { return; }
+	__cxa_exception *ex = exceptionFromPointer(thrown_exception);
+	if (isDependentException(ex->unwindHeader.exception_class)) { return; }
+	__sync_fetch_and_add(&ex->referenceCount, 1);
+}
+extern "C" void __cxa_decrement_exception_refcount(void* thrown_exception)
+{
+	if (NULL == thrown_exception) { return; }
+	releaseException(exceptionFromPointer(thrown_exception));
+}
 
 /**
  * ABI function.  Rethrows the current exception.  Does not remove the
@@ -651,7 +718,8 @@ static std::type_info *get_type_info_entry(_Unwind_Context *context,
  * matches cleanups.
  */
 static bool check_type_signature(__cxa_exception *ex,
-                                 const std::type_info *type)
+                                 const std::type_info *type,
+                                 void *&adjustedPtr)
 {
 	// TODO: For compatibility with the GNU implementation, we should move this
 	// out into a __do_catch() virtual function in std::type_info
@@ -677,7 +745,7 @@ static bool check_type_signature(__cxa_exception *ex,
 	{
 		if (ex)
 		{
-			ex->adjustedPtr = exception_ptr;
+			adjustedPtr = exception_ptr;
 		}
 		return true;
 	}
@@ -698,7 +766,7 @@ static bool check_type_signature(__cxa_exception *ex,
 		// Special case for void* handler.  
 		if(*target_ptr_type->__pointee == typeid(void))
 		{
-			ex->adjustedPtr = exception_ptr;
+			adjustedPtr = exception_ptr;
 			return true;
 		}
 
@@ -709,7 +777,7 @@ static bool check_type_signature(__cxa_exception *ex,
 	// If the types are the same, no casting is needed.
 	if (*type == *ex_type)
 	{
-		ex->adjustedPtr = exception_ptr;
+		adjustedPtr = exception_ptr;
 		return true;
 	}
 
@@ -722,7 +790,7 @@ static bool check_type_signature(__cxa_exception *ex,
 		0 != target_cls_type &&
 		cls_type->can_cast_to(target_cls_type))
 	{
-		ex->adjustedPtr = cls_type->cast_to(exception_ptr, target_cls_type);
+		adjustedPtr = cls_type->cast_to(exception_ptr, target_cls_type);
 		return true;
 	}
 	return false;
@@ -739,7 +807,8 @@ static handler_type check_action_record(_Unwind_Context *context,
                                         dwarf_eh_lsda *lsda,
                                         dw_eh_ptr_t action_record,
                                         __cxa_exception *ex,
-                                        unsigned long *selector)
+                                        unsigned long *selector,
+                                        void *&adjustedPtr)
 {
 	if (!action_record) { return handler_cleanup; }
 	handler_type found = handler_none;
@@ -755,7 +824,7 @@ static handler_type check_action_record(_Unwind_Context *context,
 		if (filter > 0 && 0 != ex)
 		{
 			std::type_info *handler_type = get_type_info_entry(context, lsda, filter);
-			if (check_type_signature(ex, handler_type))
+			if (check_type_signature(ex, handler_type, adjustedPtr))
 			{
 				*selector = filter;
 				return handler_catch;
@@ -772,7 +841,7 @@ static handler_type check_action_record(_Unwind_Context *context,
 				// If the exception spec matches a permitted throw type for
 				// this function, don't report a handler - we are allowed to
 				// propagate this exception out.
-				if (check_type_signature(ex, handler_type))
+				if (check_type_signature(ex, handler_type, adjustedPtr))
 				{
 					matched = true;
 					break;
@@ -812,17 +881,18 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 		return _URC_FATAL_PHASE1_ERROR;
 	}
 	__cxa_exception *ex = 0;
+	__cxa_exception *realEx = 0;
 
 	// If this exception is throw by something else then we can't make any
 	// assumptions about its layout beyond the fields declared in
 	// _Unwind_Exception.
-	bool foreignException = exceptionClass != exception_class;
+	bool foreignException = !isCXXException(exceptionClass);
 
 	// If this isn't a foreign exception, then we have a C++ exception structure
 	if (!foreignException)
 	{
-		ex = (__cxa_exception*)((char*)exceptionObject -
-		                        offsetof(struct __cxa_exception, unwindHeader));
+		ex = exceptionFromPointer(exceptionObject);
+		realEx = realExceptionFromException(ex);
 	}
 
 	unsigned char *lsda_addr =
@@ -865,7 +935,7 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 		}
 
 		handler_type found_handler = check_action_record(context, &lsda,
-				action.action_record, ex, &selector);
+				action.action_record, realEx, &selector, ex->adjustedPtr);
 		// If there's no action record, we've only found a cleanup, so keep
 		// searching for something real
 		if (found_handler == handler_catch)
@@ -897,7 +967,7 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 		dwarf_eh_find_callsite(context, &lsda, &action);
 		if (0 == action.landing_pad) { return _URC_CONTINUE_UNWIND; }
 		handler_type found_handler = check_action_record(context, &lsda,
-				action.action_record, ex, &selector);
+				action.action_record, realEx, &selector, ex->adjustedPtr);
 		// Ignore handlers this time.
 		if (found_handler != handler_cleanup) { return _URC_CONTINUE_UNWIND; }
 	}
@@ -905,8 +975,8 @@ extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
 	{
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
 		dwarf_eh_find_callsite(context, &lsda, &action);
-		check_action_record(context, &lsda, action.action_record, ex,
-				&selector);
+		check_action_record(context, &lsda, action.action_record, realEx,
+				&selector, ex->adjustedPtr);
 	}
 	else if (ex->catchTemp == 0)
 	{
@@ -951,8 +1021,7 @@ extern "C" void *__cxa_begin_catch(void *e)
 
 	if (exceptionObject->exception_class == exception_class)
 	{
-		__cxa_exception *ex = (__cxa_exception*) ((char*)exceptionObject -
-			offsetof(struct __cxa_exception, unwindHeader));
+		__cxa_exception *ex =  exceptionFromPointer(exceptionObject);
 
 		if (ex->handlerCount == 0)
 		{
@@ -1043,10 +1112,7 @@ extern "C" void __cxa_end_catch()
 		globals->caughtExceptions = ex->nextException;
 		if (deleteException)
 		{
-			// __cxa_free_exception() expects to be passed the thrown object,
-			// which immediately follows the exception, not the exception
-			// itself
-			__cxa_free_exception(ex+1);
+			releaseException(ex);
 		}
 	}
 }
@@ -1071,8 +1137,7 @@ extern "C" void __cxa_call_unexpected(void*exception)
 	_Unwind_Exception *exceptionObject = (_Unwind_Exception*)exception;
 	if (exceptionObject->exception_class == exception_class)
 	{
-		__cxa_exception *ex = (__cxa_exception*) ((char*)exceptionObject -
-				offsetof(struct __cxa_exception, unwindHeader));
+		__cxa_exception *ex =  exceptionFromPointer(exceptionObject);
 		if (ex->unexpectedHandler)
 		{
 			ex->unexpectedHandler();
@@ -1090,8 +1155,7 @@ extern "C" void __cxa_call_unexpected(void*exception)
  */
 extern "C" void *__cxa_get_exception_ptr(void *exceptionObject)
 {
-	return ((__cxa_exception*)((char*)exceptionObject - 
-		offsetof(struct __cxa_exception, unwindHeader)))->adjustedPtr;
+	return exceptionFromPointer(exceptionObject)->adjustedPtr;
 }
 
 /**
@@ -1100,6 +1164,7 @@ extern "C" void *__cxa_get_exception_ptr(void *exceptionObject)
  * behaviour where they are global.
  */
 static bool thread_local_handlers = false;
+
 
 namespace pathscale
 {
