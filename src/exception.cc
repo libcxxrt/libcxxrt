@@ -150,24 +150,9 @@ static __cxa_exception *exceptionFromPointer(void *ex)
 static __cxa_exception *realExceptionFromException(__cxa_exception *ex)
 {
 	if (!isDependentException(ex->unwindHeader.exception_class)) { return ex; }
-	return exceptionFromPointer(((__cxa_dependent_exception*)ex)->primaryException);
+	return ((__cxa_exception*)(((__cxa_dependent_exception*)ex)->primaryException))-1;
 }
 
-static void releaseException(__cxa_exception *exception)
-{
-	if (isDependentException(exception->unwindHeader.exception_class))
-	{
-		__cxa_free_dependent_exception(exception+1);
-		return;
-	}
-	if (__sync_sub_and_fetch(&exception->referenceCount, 1) == 0)
-	{
-		// __cxa_free_exception() expects to be passed the thrown object,
-		// which immediately follows the exception, not the exception
-		// itself
-		__cxa_free_exception(exception+1);
-	}
-}
 
 namespace std
 {
@@ -473,12 +458,29 @@ extern "C" void __cxa_free_exception(void *thrown_exception)
 	free_exception((char*)ex);
 }
 
+static void releaseException(__cxa_exception *exception)
+{
+	if (isDependentException(exception->unwindHeader.exception_class))
+	{
+		__cxa_free_dependent_exception(exception+1);
+		return;
+	}
+	if (__sync_sub_and_fetch(&exception->referenceCount, 1) == 0)
+	{
+		// __cxa_free_exception() expects to be passed the thrown object,
+		// which immediately follows the exception, not the exception
+		// itself
+		__cxa_free_exception(exception+1);
+	}
+}
+
 void __cxa_free_dependent_exception(void *thrown_exception)
 {
 	__cxa_dependent_exception *ex = ((__cxa_dependent_exception*)thrown_exception) - 1;
+	assert(isDependentException(ex->unwindHeader.exception_class));
 	if (ex->primaryException)
 	{
-		__cxa_free_exception(ex->primaryException);
+		releaseException(realExceptionFromException((__cxa_exception*)ex));
 	}
 	free_exception((char*)ex);
 }
@@ -610,7 +612,7 @@ extern "C" void __cxa_rethrow_primary_exception(void* thrown_exception)
 	if (NULL == thrown_exception) { return; }
 
 	__cxa_exception *original = exceptionFromPointer(thrown_exception);
-	__cxa_dependent_exception *ex = (__cxa_dependent_exception*)__cxa_allocate_dependent_exception();
+	__cxa_dependent_exception *ex = ((__cxa_dependent_exception*)__cxa_allocate_dependent_exception())-1;
 
 	ex->primaryException = thrown_exception;
 	__cxa_increment_exception_refcount(thrown_exception);
@@ -630,20 +632,21 @@ extern "C" void *__cxa_current_primary_exception(void)
 	if (0 == ex) { return NULL; }
 	ex = realExceptionFromException(ex);
 	__sync_fetch_and_add(&ex->referenceCount, 1);
-	return ex;
+	return ex + 1;
 }
 
 extern "C" void __cxa_increment_exception_refcount(void* thrown_exception)
 {
 	if (NULL == thrown_exception) { return; }
-	__cxa_exception *ex = exceptionFromPointer(thrown_exception);
+	__cxa_exception *ex = ((__cxa_exception*)thrown_exception) - 1;
 	if (isDependentException(ex->unwindHeader.exception_class)) { return; }
 	__sync_fetch_and_add(&ex->referenceCount, 1);
 }
 extern "C" void __cxa_decrement_exception_refcount(void* thrown_exception)
 {
 	if (NULL == thrown_exception) { return; }
-	releaseException(exceptionFromPointer(thrown_exception));
+	__cxa_exception *ex = ((__cxa_exception*)thrown_exception) - 1;
+	releaseException(ex);
 }
 
 /**
@@ -669,7 +672,6 @@ extern "C" void __cxa_rethrow()
 		        "Attempting to rethrow an exception that doesn't exist!\n");
 		std::terminate();
 	}
-
 
 	assert(ex->handlerCount > 0 && "Rethrowing uncaught exception!");
 
@@ -1019,7 +1021,7 @@ extern "C" void *__cxa_begin_catch(void *e)
 	globals->uncaughtExceptions--;
 	_Unwind_Exception *exceptionObject = (_Unwind_Exception*)e;
 
-	if (exceptionObject->exception_class == exception_class)
+	if (isCXXException(exceptionObject->exception_class))
 	{
 		__cxa_exception *ex =  exceptionFromPointer(exceptionObject);
 
