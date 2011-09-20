@@ -272,7 +272,7 @@ static __cxa_thread_info *thread_info_fast()
 /**
  * ABI function returning the __cxa_eh_globals structure.
  */
-extern "C" __cxa_eh_globals *__cxa_get_globals(void)
+extern "C" __cxa_eh_globals *ABI_NAMESPACE::__cxa_get_globals(void)
 {
 	return &(thread_info()->globals);
 }
@@ -280,7 +280,7 @@ extern "C" __cxa_eh_globals *__cxa_get_globals(void)
  * Version of __cxa_get_globals() assuming that __cxa_get_globals() has already
  * been called at least once by this thread.
  */
-extern "C" __cxa_eh_globals *__cxa_get_globals_fast(void)
+extern "C" __cxa_eh_globals *ABI_NAMESPACE::__cxa_get_globals_fast(void)
 {
 	return &(thread_info_fast()->globals);
 }

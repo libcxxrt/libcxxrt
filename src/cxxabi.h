@@ -157,7 +157,7 @@ __cxa_eh_globals *__cxa_get_globals(void);
  * Version of __cxa_get_globals() assuming that __cxa_get_globals() has already
  * been called at least once by this thread.
  */
-__cxa_eh_globals *__cxa_get_globals(void);
+__cxa_eh_globals *__cxa_get_globals_fast(void);
 
 /**
  * Throws an exception returned by __cxa_current_primary_exception().  This
