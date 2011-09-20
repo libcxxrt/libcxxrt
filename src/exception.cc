@@ -183,7 +183,7 @@ using namespace ABI_NAMESPACE;
 /** The global termination handler. */
 static terminate_handler terminateHandler = abort;
 /** The global unexpected exception handler. */
-static unexpected_handler unexpectedHandler = abort;
+static unexpected_handler unexpectedHandler = std::terminate;
 
 /** Key used for thread-local data. */
 static pthread_key_t eh_key;
@@ -1223,6 +1223,7 @@ namespace std
 	 */
 	void terminate()
 	{
+		fprintf(stderr, "Terminate called\n");
 		static __cxa_thread_info *info = thread_info_fast();
 		if (0 != info && 0 != info->terminateHandler)
 		{
@@ -1259,5 +1260,28 @@ namespace std
 		__cxa_thread_info *info = thread_info();
 		return info->globals.uncaughtExceptions != 0;
 	}
-
+	/**
+	 * Returns the current unexpected handler.
+	 */
+	unexpected_handler get_unexpected() throw()
+	{
+		__cxa_thread_info *info = thread_info();
+		if (info->unexpectedHandler)
+		{
+			return info->unexpectedHandler;
+		}
+		return unexpectedHandler;
+	}
+	/**
+	 * Returns the current terminate handler.
+	 */
+	terminate_handler get_terminate() throw()
+	{
+		__cxa_thread_info *info = thread_info();
+		if (info->terminateHandler)
+		{
+			return info->terminateHandler;
+		}
+		return terminateHandler;
+	}
 }
