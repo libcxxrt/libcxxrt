@@ -46,19 +46,6 @@ ABI_NAMESPACE::__pointer_to_member_type_info::~__pointer_to_member_type_info() {
 // From libelftc
 extern "C" char    *__cxa_demangle_gnu3(const char *);
 
-/**
- * Demangles a C++ symbol or type name.  The buffer, if non-NULL, must be
- * allocated with malloc() and must be *n bytes or more long.  This function
- * may call realloc() on the value pointed to by buf, and will return the
- * length of the string via *n.
- *
- * The value pointed to by status is set to one of the following:
- *
- * 0: success
- * -1: memory allocation failure
- * -2: invalid mangled name
- * -3: invalid arguments
- */
 extern "C" char* __cxa_demangle(const char* mangled_name,
                                 char* buf,
                                 size_t* n,

@@ -180,7 +180,23 @@ void __cxa_increment_exception_refcount(void* thrown_exception);
  * exception_ptr is deleted.
  */
 void __cxa_decrement_exception_refcount(void* thrown_exception);
-
+/**
+ * Demangles a C++ symbol or type name.  The buffer, if non-NULL, must be
+ * allocated with malloc() and must be *n bytes or more long.  This function
+ * may call realloc() on the value pointed to by buf, and will return the
+ * length of the string via *n.
+ *
+ * The value pointed to by status is set to one of the following:
+ *
+ * 0: success
+ * -1: memory allocation failure
+ * -2: invalid mangled name
+ * -3: invalid arguments
+ */
+char* __cxa_demangle(const char* mangled_name,
+                     char* buf,
+                     size_t* n,
+                     int* status);
 #ifdef __cplusplus
 } // extern "C"
 } // namespace
