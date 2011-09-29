@@ -104,11 +104,6 @@ namespace std
 
 extern "C" std::type_info *__cxa_current_exception_type();
 
-extern "C" char* __cxa_demangle(const char* mangled_name,
-                                char* buf,
-                                size_t* n,
-                                int* status);
-
 /**
  * Class of exceptions to distinguish between this and other exception types.
  *
