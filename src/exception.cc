@@ -533,8 +533,8 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 			if (throw_ti)
 			{
 				std::exception *e =
-					(std::exception*)__dynamic_cast((void*)(thrown_exception+1),
-							e_ti, throw_ti, -1);
+					(std::exception*)e_ti->cast_to((void*)(thrown_exception+1),
+							throw_ti);
 				if (e)
 				{
 					fprintf(stderr, " '%s'", e->what());
