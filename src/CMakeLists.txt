@@ -6,7 +6,7 @@ set(CXXRT_SOURCES
     stdexcept.cc
     typeinfo.cc
     memory.cc
-    aux.cc
+    auxhelper.cc
     libelftc_dem_gnu3.c
    )
 
