@@ -200,5 +200,8 @@ char* __cxa_demangle(const char* mangled_name,
 #ifdef __cplusplus
 } // extern "C"
 } // namespace
+
+namespace abi = __cxxabiv1;
+
 #endif /* __cplusplus */
 #endif /* __CXXABI_H_ */
