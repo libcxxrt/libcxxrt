@@ -9,6 +9,67 @@
 
 using namespace ABI_NAMESPACE;
 
+/**
+ * Saves the result of the landing pad that we have found.  For ARM, this is
+ * stored in the generic unwind structure, while on other platforms it is
+ * stored in the C++ exception.
+ */
+static void saveLandingPad(struct _Unwind_Context *context,
+                           struct _Unwind_Exception *ucb,
+                           struct __cxa_exception *ex,
+                           int selector,
+                           dw_eh_ptr_t landingPad)
+{
+#ifdef __arm__
+	// On ARM, we store the saved exception in the generic part of the structure
+	ucb->barrier_cache.sp = _Unwind_GetGR(context, 13);
+	ucb->barrier_cache.bitpattern[1] = (uint32_t)selector;
+	ucb->barrier_cache.bitpattern[3] = (uint32_t)landingPad;
+#else
+	// Cache the results for the phase 2 unwind, if we found a handler
+	// and this is not a foreign exception.  
+	if (ex)
+	{
+		ex->handlerSwitchValue = selector;
+		ex->catchTemp = landingPad;
+	}
+#endif
+}
+
+/**
+ * Loads the saved landing pad.  Returns 1 on success, 0 on failure.
+ */
+static int loadLandingPad(struct _Unwind_Context *context,
+                          struct _Unwind_Exception *ucb,
+                          struct __cxa_exception *ex,
+                          unsigned long *selector,
+                          dw_eh_ptr_t *landingPad)
+{
+#ifdef __arm__
+	*selector = ucb->barrier_cache.bitpattern[1];
+	*landingPad = (dw_eh_ptr_t)ucb->barrier_cache.bitpattern[3];
+	return 1;
+#else
+	if (ex)
+	{
+		*selector = ex->handlerSwitchValue;
+		*landingPad = (dw_eh_ptr_t)ex->catchTemp;
+		return 0;
+	}
+	return 0;
+#endif
+}
+
+static inline _Unwind_Reason_Code continueUnwinding(struct _Unwind_Exception *ex,
+                                                    struct _Unwind_Context *context)
+{
+#ifdef __arm__
+	if (__gnu_unwind_frame(ex, context) != _URC_OK) { return _URC_FAILURE; }
+#endif
+	return _URC_CONTINUE_UNWIND;
+}
+
+
 extern "C" void __cxa_free_exception(void *thrown_exception);
 extern "C" void __cxa_free_dependent_exception(void *thrown_exception);
 extern "C" void* __dynamic_cast(const void *sub,
@@ -892,7 +953,7 @@ BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 		(unsigned char*)_Unwind_GetLanguageSpecificData(context);
 
 	// No LSDA implies no landing pads - try the next frame
-	if (0 == lsda_addr) { return _URC_CONTINUE_UNWIND; }
+	if (0 == lsda_addr) { return continueUnwinding(exceptionObject, context); }
 
 	// These two variables define how the exception will be handled.
 	dwarf_eh_action action = {0};
@@ -937,15 +998,14 @@ BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 			// and this is not a foreign exception.
 			if (ex)
 			{
-				ex->handlerSwitchValue = selector;
-				ex->actionRecord = (const char*)action.action_record;
+				saveLandingPad(context, exceptionObject, ex, selector, action.landing_pad);
 				ex->languageSpecificData = (const char*)lsda_addr;
-				ex->catchTemp = action.landing_pad;
+				ex->actionRecord = (const char*)action.action_record;
 				// ex->adjustedPtr is set when finding the action record.
 			}
 			return _URC_HANDLER_FOUND;
 		}
-		return _URC_CONTINUE_UNWIND;
+		return continueUnwinding(exceptionObject, context);
 	}
 
 
@@ -958,11 +1018,11 @@ BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 		// cleanup
 		struct dwarf_eh_lsda lsda = parse_lsda(context, lsda_addr);
 		dwarf_eh_find_callsite(context, &lsda, &action);
-		if (0 == action.landing_pad) { return _URC_CONTINUE_UNWIND; }
+		if (0 == action.landing_pad) { return continueUnwinding(exceptionObject, context); }
 		handler_type found_handler = check_action_record(context, &lsda,
 				action.action_record, realEx, &selector, ex->adjustedPtr);
 		// Ignore handlers this time.
-		if (found_handler != handler_cleanup) { return _URC_CONTINUE_UNWIND; }
+		if (found_handler != handler_cleanup) { return continueUnwinding(exceptionObject, context); }
 	}
 	else if (foreignException)
 	{
@@ -979,9 +1039,8 @@ BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 	else
 	{
 		// Restore the saved info if we saved some last time.
-		action.landing_pad = (dw_eh_ptr_t)ex->catchTemp;
+		loadLandingPad(context, exceptionObject, ex, &selector, &action.landing_pad);
 		ex->catchTemp = 0;
-		selector = (unsigned long)ex->handlerSwitchValue;
 		ex->handlerSwitchValue = 0;
 	}
 
