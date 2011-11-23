@@ -864,12 +864,8 @@ static handler_type check_action_record(_Unwind_Context *context,
  * DWARF metadata and is called by the unwind library for each C++ stack frame
  * containing catch or cleanup code.
  */
-extern "C" _Unwind_Reason_Code  __gxx_personality_v0(int version,
-                                                     _Unwind_Action actions,
-                                                     uint64_t exceptionClass,
-                                                     struct _Unwind_Exception *exceptionObject,
-                                                     struct _Unwind_Context *context)
-{
+extern "C"
+BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 	// This personality function is for version 1 of the ABI.  If you use it
 	// with a future version of the ABI, it won't know what to do, so it
 	// reports a fatal error and give up before it breaks anything.
