@@ -2,6 +2,7 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdint.h>
 #include <pthread.h>
 #include "typeinfo.h"
 #include "dwarf_eh.h"
@@ -25,7 +26,7 @@ static void saveLandingPad(struct _Unwind_Context *context,
 	ucb->barrier_cache.sp = _Unwind_GetGR(context, 13);
 	ucb->barrier_cache.bitpattern[1] = (uint32_t)selector;
 	ucb->barrier_cache.bitpattern[3] = (uint32_t)landingPad;
-#else
+#endif
 	// Cache the results for the phase 2 unwind, if we found a handler
 	// and this is not a foreign exception.  
 	if (ex)
@@ -33,7 +34,6 @@ static void saveLandingPad(struct _Unwind_Context *context,
 		ex->handlerSwitchValue = selector;
 		ex->catchTemp = landingPad;
 	}
-#endif
 }
 
 /**
@@ -119,6 +119,10 @@ struct __cxa_thread_info
 	 * in ABI spec [3.3.1]).
 	 */
 	int emergencyBuffersHeld;
+	/**
+	 * The exception currently running in a cleanup.
+	 */
+	_Unwind_Exception *currentCleanup;
 	/**
 	 * The public part of this structure, accessible from outside of this
 	 * module.
@@ -580,9 +584,11 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 		case _URC_FATAL_PHASE1_ERROR:
 			fprintf(stderr, "Fatal error during phase 1 unwinding\n");
 			break;
+#ifndef __arm__
 		case _URC_FATAL_PHASE2_ERROR:
 			fprintf(stderr, "Fatal error during phase 2 unwinding\n");
 			break;
+#endif
 		case _URC_END_OF_STACK:
 			fprintf(stderr, "Terminating due to uncaught exception %p", 
 					(void*)thrown_exception);
@@ -650,6 +656,7 @@ extern "C" void __cxa_throw(void *thrown_exception,
                             std::type_info *tinfo,
                             void(*dest)(void*))
 {
+	fprintf(stderr, "Thrown exception: %p\n", thrown_exception);
 	__cxa_exception *ex = ((__cxa_exception*)thrown_exception) - 1;
 
 	ex->referenceCount = 1;
@@ -757,6 +764,7 @@ static std::type_info *get_type_info_entry(_Unwind_Context *context,
 	// Get the address of the record in the table.
 	dw_eh_ptr_t record = lsda->type_table - 
 		dwarf_size_of_fixed_size_field(lsda->type_table_encoding)*filter;
+	//record -= 4;
 	dw_eh_ptr_t start = record;
 	// Read the value, but it's probably an indirect reference...
 	int64_t offset = read_value(lsda->type_table_encoding, &record);
@@ -768,6 +776,7 @@ static std::type_info *get_type_info_entry(_Unwind_Context *context,
 	return (std::type_info*)resolve_indirect_value(context,
 			lsda->type_table_encoding, offset, start);
 }
+
 
 
 /**
@@ -895,7 +904,14 @@ static handler_type check_action_record(_Unwind_Context *context,
 			*selector = filter;
 			while (*type_index)
 			{
+#ifdef __arm__
+				//fprintf(stderr, "Filter: %d\n", filter);
+				std::type_info *handler_type = handler_type = get_type_info_entry(context, lsda, -filter - 1);
+				//fprintf(stderr, "Handler: %p\n", handler_type);
+				type_index++;
+#else
 				std::type_info *handler_type = get_type_info_entry(context, lsda, *(type_index++));
+#endif
 				// If the exception spec matches a permitted throw type for
 				// this function, don't report a handler - we are allowed to
 				// propagate this exception out.
@@ -1023,6 +1039,8 @@ BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 				action.action_record, realEx, &selector, ex->adjustedPtr);
 		// Ignore handlers this time.
 		if (found_handler != handler_cleanup) { return continueUnwinding(exceptionObject, context); }
+		__cxa_thread_info *info = thread_info_fast();
+		info->currentCleanup = exceptionObject;
 	}
 	else if (foreignException)
 	{
@@ -1066,6 +1084,7 @@ extern "C" void *__cxa_begin_catch(void *e) throw()
 extern "C" void *__cxa_begin_catch(void *e)
 #endif
 {
+	fprintf(stderr, "Entering catch\n");
 	// Decrement the uncaught exceptions count
 	__cxa_eh_globals *globals = __cxa_get_globals();
 	globals->uncaughtExceptions--;
@@ -1111,12 +1130,19 @@ extern "C" void *__cxa_begin_catch(void *e)
 			ex->handlerCount++;
 		}
 		
+	fprintf(stderr, "Exception base pointer: %p\n", ((char*)exceptionObject + sizeof(_Unwind_Exception)));
+	fprintf(stderr, "Exception edjusted pointer: %p\n", ex->adjustedPtr);
+	fprintf(stderr, "Exception as int: %d\n", *(int*)((char*)exceptionObject + sizeof(_Unwind_Exception)));
+
 		return ex->adjustedPtr;
 	}
+	fprintf(stderr, "Exception as int: %d\n", *(int*)((char*)exceptionObject + sizeof(_Unwind_Exception)));
 	// exceptionObject is the pointer to the _Unwind_Exception within the
 	// __cxa_exception.  The throw object is after this
 	return ((char*)exceptionObject + sizeof(_Unwind_Exception));
 }
+
+
 
 /**
  * ABI function called when exiting a catch block.  This will free the current
@@ -1124,6 +1150,7 @@ extern "C" void *__cxa_begin_catch(void *e)
  */
 extern "C" void __cxa_end_catch()
 {
+	fprintf(stderr, "Leaving catch\n");
 	// We can call the fast version here because the slow version is called in
 	// __cxa_throw(), which must have been called before we end a catch block
 	__cxa_eh_globals *globals = __cxa_get_globals_fast();
@@ -1168,6 +1195,20 @@ extern "C" void __cxa_end_catch()
 		}
 	}
 }
+
+/*
+extern "C" void __cxa_end_cleanup(_Unwind_Exception* exceptionObject)
+{
+	_Unwind_Resume(0);
+//	fprintf(stderr, "Leaving cleanup\n");
+}
+
+extern "C" bool __cxa_begin_cleanup(_Unwind_Exception* exceptionObject)
+{
+	fprintf(stderr, "Entering cleanup\n");
+	return true;
+}
+*/
 
 /**
  * ABI function.  Returns the type of the current exception.
@@ -1336,3 +1377,23 @@ namespace std
 		return terminateHandler;
 	}
 }
+#ifdef __arm__
+extern "C" _Unwind_Exception *__cxa_get_cleanup(void)
+{
+	__cxa_thread_info *info = thread_info_fast();
+	return info->currentCleanup;
+}
+
+asm (
+".pushsection .text.__cxa_end_cleanup    \n"
+".global __cxa_end_cleanup               \n"
+".type __cxa_end_cleanup, \"function\"   \n"
+"__cxa_end_cleanup:                      \n"
+"	push {r1, r2, r3, r4}                \n"
+"	bl __cxa_get_cleanup                 \n"
+"	push {r1, r2, r3, r4}                \n"
+"	b _Unwind_Resume                     \n"
+"	bl abort                             \n"
+".popsection                             \n"
+);
+#endif

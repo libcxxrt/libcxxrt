@@ -116,6 +116,12 @@ extern unsigned long _Unwind_GetDataRelBase(struct _Unwind_Context *);
 extern unsigned long _Unwind_GetTextRelBase(struct _Unwind_Context *);
 extern unsigned long _Unwind_GetRegionStart(struct _Unwind_Context *);
 
+typedef _Unwind_Reason_Code (*_Unwind_Trace_Fn) (struct _Unwind_Context *,
+						 void *);
+extern _Unwind_Reason_Code _Unwind_Backtrace (_Unwind_Trace_Fn, void *);
+extern _Unwind_Reason_Code
+	  _Unwind_Resume_or_Rethrow (struct _Unwind_Exception *);
+
 /**
  * The next set of functions are compatibility extensions, implementing Itanium
  * ABI functions on top of ARM ones.
@@ -164,8 +170,6 @@ _Unwind_Reason_Code name(_Unwind_State state,\
                          struct _Unwind_Exception *exceptionObject,\
                          struct _Unwind_Context *context)\
 {\
-	fprintf(stderr, "LSDA: %p\n", (void*)_Unwind_GetLanguageSpecificData(context));\
-	fprintf(stderr, "IP: %p\n", (void*)_Unwind_GetIP(context));\
 	int version = 1;\
 	uint64_t exceptionClass = exceptionObject->exception_class;\
 	int actions;\
@@ -192,6 +196,6 @@ _Unwind_Reason_Code name(_Unwind_State state,\
 			break;\
 		}\
 	}\
-	_Unwind_SetGR (context, 12, (unsigned long)exceptionObject);
+	_Unwind_SetGR (context, 12, (unsigned long)exceptionObject);\
 
 #define CALL_PERSONALITY_FUNCTION(name) name(state,exceptionObject,context)
