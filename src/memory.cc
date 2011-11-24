@@ -103,7 +103,7 @@ void * operator new[](size_t size)
 
 
 __attribute__((weak))
-void operator delete[](void * ptr)
+void operator delete[](void * ptr) throw()
 {
 	::operator delete(ptr);
 }
