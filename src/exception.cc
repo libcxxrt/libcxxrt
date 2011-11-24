@@ -289,11 +289,24 @@ static void thread_cleanup(void* thread_info)
 static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
 /**
+ * We may not be linked against a full pthread implementation.  If we're not,
+ * then we need to fake the thread-local storage by storing 'thread-local'
+ * things in a global.
+ */
+static bool fakeTLS;
+/**
+ * Thread-local storage for a single-threaded program.
+ */
+static __cxa_thread_info singleThreadInfo;
+/**
  * Initialise eh_key.
  */
 static void init_key(void)
 {
 	pthread_key_create(&eh_key, thread_cleanup);
+	pthread_setspecific(eh_key, (void*)0x42);
+	fakeTLS = (pthread_getspecific(eh_key) != (void*)0x42);
+	pthread_setspecific(eh_key, 0);
 }
 
 /**
@@ -301,7 +314,11 @@ static void init_key(void)
  */
 static __cxa_thread_info *thread_info()
 {
-	pthread_once(&once_control, init_key);
+	if (pthread_once(&once_control, init_key))
+	{
+		fakeTLS = true;
+	}
+	if (fakeTLS) { return &singleThreadInfo; }
 	__cxa_thread_info *info = (__cxa_thread_info*)pthread_getspecific(eh_key);
 	if (0 == info)
 	{
@@ -316,6 +333,7 @@ static __cxa_thread_info *thread_info()
  */
 static __cxa_thread_info *thread_info_fast()
 {
+	if (fakeTLS) { return &singleThreadInfo; }
 	return (__cxa_thread_info*)pthread_getspecific(eh_key);
 }
 /**
