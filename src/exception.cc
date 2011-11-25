@@ -953,6 +953,12 @@ static void pushCleanupException(_Unwind_Exception *exceptionObject,
 	__cxa_thread_info *info = thread_info_fast();
 	if (ex)
 	{
+		ex->cleanupCount++;
+		if (ex->cleanupCount > 1)
+		{
+			assert(exceptionObject == info->currentCleanup);
+			return;
+		}
 		ex->nextCleanup = info->currentCleanup;
 	}
 	info->currentCleanup = exceptionObject;
@@ -1386,7 +1392,16 @@ extern "C" _Unwind_Exception *__cxa_get_cleanup(void)
 	if (isCXXException(exceptionObject->exception_class))
 	{
 		__cxa_exception *ex =  exceptionFromPointer(exceptionObject);
-		info->currentCleanup = ex->nextCleanup;
+		ex->cleanupCount--;
+		if (ex->cleanupCount == 0)
+		{
+			info->currentCleanup = ex->nextCleanup;
+			ex->nextCleanup = 0;
+		}
+	}
+	else
+	{
+		info->currentCleanup = 0;
 	}
 	return exceptionObject;
 }
