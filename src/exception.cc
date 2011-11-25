@@ -656,7 +656,6 @@ extern "C" void __cxa_throw(void *thrown_exception,
                             std::type_info *tinfo,
                             void(*dest)(void*))
 {
-	fprintf(stderr, "Thrown exception: %p\n", thrown_exception);
 	__cxa_exception *ex = ((__cxa_exception*)thrown_exception) - 1;
 
 	ex->referenceCount = 1;
@@ -899,19 +898,25 @@ static handler_type check_action_record(_Unwind_Context *context,
 		}
 		else if (filter < 0 && 0 != ex)
 		{
-			unsigned char *type_index = ((unsigned char*)lsda->type_table - filter - 1);
 			bool matched = false;
 			*selector = filter;
+#ifdef __arm__
+			filter++;
+			std::type_info *handler_type = get_type_info_entry(context, lsda, filter--);
+			while (handler_type)
+			{
+				if (check_type_signature(ex, handler_type, adjustedPtr))
+				{
+					matched = true;
+					break;
+				}
+				handler_type = get_type_info_entry(context, lsda, filter--);
+			}
+#else
+			unsigned char *type_index = ((unsigned char*)lsda->type_table - filter - 1);
 			while (*type_index)
 			{
-#ifdef __arm__
-				//fprintf(stderr, "Filter: %d\n", filter);
-				std::type_info *handler_type = handler_type = get_type_info_entry(context, lsda, -filter - 1);
-				//fprintf(stderr, "Handler: %p\n", handler_type);
-				type_index++;
-#else
 				std::type_info *handler_type = get_type_info_entry(context, lsda, *(type_index++));
-#endif
 				// If the exception spec matches a permitted throw type for
 				// this function, don't report a handler - we are allowed to
 				// propagate this exception out.
@@ -921,6 +926,7 @@ static handler_type check_action_record(_Unwind_Context *context,
 					break;
 				}
 			}
+#endif
 			if (matched) { continue; }
 			// If we don't find an allowed exception spec, we need to install
 			// the context for this action.  The landing pad will then call the
@@ -1084,7 +1090,6 @@ extern "C" void *__cxa_begin_catch(void *e) throw()
 extern "C" void *__cxa_begin_catch(void *e)
 #endif
 {
-	fprintf(stderr, "Entering catch\n");
 	// Decrement the uncaught exceptions count
 	__cxa_eh_globals *globals = __cxa_get_globals();
 	globals->uncaughtExceptions--;
@@ -1130,13 +1135,8 @@ extern "C" void *__cxa_begin_catch(void *e)
 			ex->handlerCount++;
 		}
 		
-	fprintf(stderr, "Exception base pointer: %p\n", ((char*)exceptionObject + sizeof(_Unwind_Exception)));
-	fprintf(stderr, "Exception edjusted pointer: %p\n", ex->adjustedPtr);
-	fprintf(stderr, "Exception as int: %d\n", *(int*)((char*)exceptionObject + sizeof(_Unwind_Exception)));
-
 		return ex->adjustedPtr;
 	}
-	fprintf(stderr, "Exception as int: %d\n", *(int*)((char*)exceptionObject + sizeof(_Unwind_Exception)));
 	// exceptionObject is the pointer to the _Unwind_Exception within the
 	// __cxa_exception.  The throw object is after this
 	return ((char*)exceptionObject + sizeof(_Unwind_Exception));
@@ -1150,7 +1150,6 @@ extern "C" void *__cxa_begin_catch(void *e)
  */
 extern "C" void __cxa_end_catch()
 {
-	fprintf(stderr, "Leaving catch\n");
 	// We can call the fast version here because the slow version is called in
 	// __cxa_throw(), which must have been called before we end a catch block
 	__cxa_eh_globals *globals = __cxa_get_globals_fast();
@@ -1195,20 +1194,6 @@ extern "C" void __cxa_end_catch()
 		}
 	}
 }
-
-/*
-extern "C" void __cxa_end_cleanup(_Unwind_Exception* exceptionObject)
-{
-	_Unwind_Resume(0);
-//	fprintf(stderr, "Leaving cleanup\n");
-}
-
-extern "C" bool __cxa_begin_cleanup(_Unwind_Exception* exceptionObject)
-{
-	fprintf(stderr, "Entering cleanup\n");
-	return true;
-}
-*/
 
 /**
  * ABI function.  Returns the type of the current exception.

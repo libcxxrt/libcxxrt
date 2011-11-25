@@ -193,7 +193,6 @@ static int64_t read_sleb128(dw_eh_ptr_t *data)
 static uint64_t read_value(char encoding, dw_eh_ptr_t *data)
 {
 	enum dwarf_data_encoding type = get_encoding(encoding);
-	//fprintf(stderr, "Loading (encoding %x) from %p\n", (int)encoding, *data);
 	uint64_t v;
 	switch (type)
 	{
@@ -236,7 +235,6 @@ static uint64_t resolve_indirect_value(_Unwind_Context *c,
                                        int64_t v,
                                        dw_eh_ptr_t start)
 {
-	//fprintf(stderr, "resolving(encoding %x) from %p\n", (int)get_base(encoding), (void*)(intptr_t)v);
 	switch (get_base(encoding))
 	{
 		case DW_EH_PE_pcrel:
@@ -253,7 +251,6 @@ static uint64_t resolve_indirect_value(_Unwind_Context *c,
 		default:
 			break;
 	}
-	//fprintf(stderr, "is indirect %p\n", is_indirect(encoding));
 	// If this is an indirect value, then it is really the address of the real
 	// value
 	// TODO: Check whether this should really always be a pointer - it seems to
@@ -335,7 +332,6 @@ static inline struct dwarf_eh_lsda parse_lsda(_Unwind_Context *context,
 	// spec says, but does seem to be how G++ indicates this.
 	lsda.type_table = 0;
 	lsda.type_table_encoding = *data++;
-		//fprintf(stderr, "Type table Encoding: %x\n", (int)lsda.type_table_encoding);
 	if (lsda.type_table_encoding != DW_EH_PE_omit)
 	{
 		v = read_uleb128(&data);
