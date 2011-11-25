@@ -11,6 +11,10 @@
 #include <stdlib.h>
 #include "stdexcept.h"
 
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
 #if !__has_builtin(__sync_swap)
 #define __sync_swap __sync_lock_test_and_set
 #endif
