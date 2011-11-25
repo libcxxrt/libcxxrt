@@ -143,6 +143,10 @@ struct __cxa_dependent_exception
 	terminate_handler terminateHandler;
 	__cxa_exception *nextException;
 	int handlerCount;
+#ifdef __arm__
+	_Unwind_Exception *nextCleanup;
+	int cleanupCount;
+#endif
 	int handlerSwitchValue;
 	const char *actionRecord;
 	const char *languageSpecificData;
@@ -942,6 +946,19 @@ static handler_type check_action_record(_Unwind_Context *context,
 	return found;
 }
 
+static void pushCleanupException(_Unwind_Exception *exceptionObject,
+                                 __cxa_exception *ex)
+{
+#ifdef __arm__
+	__cxa_thread_info *info = thread_info_fast();
+	if (ex)
+	{
+		ex->nextCleanup = info->currentCleanup;
+	}
+	info->currentCleanup = exceptionObject;
+#endif
+}
+
 /**
  * The exception personality function.  This is referenced in the unwinding
  * DWARF metadata and is called by the unwind library for each C++ stack frame
@@ -1045,8 +1062,7 @@ BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 				action.action_record, realEx, &selector, ex->adjustedPtr);
 		// Ignore handlers this time.
 		if (found_handler != handler_cleanup) { return continueUnwinding(exceptionObject, context); }
-		__cxa_thread_info *info = thread_info_fast();
-		info->currentCleanup = exceptionObject;
+		pushCleanupException(exceptionObject, ex);
 	}
 	else if (foreignException)
 	{
@@ -1366,7 +1382,13 @@ namespace std
 extern "C" _Unwind_Exception *__cxa_get_cleanup(void)
 {
 	__cxa_thread_info *info = thread_info_fast();
-	return info->currentCleanup;
+	_Unwind_Exception *exceptionObject = info->currentCleanup;
+	if (isCXXException(exceptionObject->exception_class))
+	{
+		__cxa_exception *ex =  exceptionFromPointer(exceptionObject);
+		info->currentCleanup = ex->nextCleanup;
+	}
+	return exceptionObject;
 }
 
 asm (
