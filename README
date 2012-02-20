@@ -28,4 +28,4 @@ Supported Platforms
 
 This code was initially developed on FreeBSD/x86, and has also been tested on FreeBSD/x86-64.  It should work on other platforms that use the Code Sourcery ABI, for example Itanium, however this is untested.
 
-Currently, this library has no support for ARM EABI (or any other ARM ABI).
+This library also supports the ARM EH ABI.
