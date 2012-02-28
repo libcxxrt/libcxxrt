@@ -103,6 +103,10 @@ extern "C" int __cxa_guard_acquire(volatile int64_t *guard_object)
 	// the lock at the same time.
 	while (!__sync_bool_compare_and_swap_4(lock, 0, 1))
 	{
+		if (1 == ((*guard_object) >> 56))
+		{
+			break;
+		}
 		sched_yield();
 	}
 	// We have to test the guard again, in case another thread has performed
