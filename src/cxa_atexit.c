@@ -13,7 +13,7 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 int __cxa_atexit( void (*f)(void *), void *p, void *d) {
   pthread_mutex_lock(&lock);
-  struct atexit_handler *h = malloc(sizeof(*d));
+  struct atexit_handler *h = malloc(sizeof(*h));
   if (!h) {
     pthread_mutex_unlock(&lock);
     return 1;
@@ -36,7 +36,7 @@ void __cxa_finalize(void *d ) {
       h->f(h->p);
       free(h);
     } else {
-      last = &head->next;
+      last = &h->next;
     }
   }
   pthread_mutex_unlock(&lock);
