@@ -65,18 +65,30 @@ extern "C" char* __cxa_demangle(const char* mangled_name,
 		{
 			memcpy(buf, demangled, len);
 			buf[len] = 0;
-			*n = len;
-			*status = 0;
+			if (n)
+			{
+				*n = len;
+			}
+			if (status)
+			{
+				*status = 0;
+			}
 		}
 		else
 		{
-			*status = -1;
+			if (status)
+			{
+				*status = -1;
+			}
 		}
 		free(demangled);
 	}
 	else
 	{
-		*status = -2;
+		if (status)
+		{
+			*status = -2;
+		}
 		return NULL;
 	}
 	return buf;
