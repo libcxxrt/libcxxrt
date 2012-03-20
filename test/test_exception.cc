@@ -9,7 +9,7 @@
 
 void log(void* ignored)
 {
-	printf("Cleanup called on %s\n", *(char**)ignored);
+	//printf("Cleanup called on %s\n", *(char**)ignored);
 }
 #define CLEANUP\
 	__attribute__((cleanup(log))) __attribute__((unused))\
@@ -81,6 +81,35 @@ int outer(int i) throw(float, int, foo, non_pod)
 	return 1;
 }
 
+static void test_const(void)
+{
+	int a = 1;
+	try
+	{
+		throw a;
+	}
+	catch (const int b)
+	{
+		TEST(a == b, "Caught int as const int");
+	}
+	catch(...)
+	{
+		TEST(0, "Failed to catch int as const int");
+	}
+	try
+	{
+		throw &a;
+	}
+	catch (const int *b)
+	{
+		TEST(&a == b, "Caught int* as const int*");
+	}
+	catch(...)
+	{
+		TEST(0, "Failed to catch int* as const int*");
+	}
+}
+
 static void test_catch(int s) 
 {
 	cl c;
@@ -92,7 +121,7 @@ static void test_catch(int s)
 	}
 	catch(int i)
 	{
-		fprintf(stderr, "Caught int %d!\n", i);
+		fprintf(stderr, "Caught int %d in test %d\n", i, s);
 		TEST((s == 0 && i == 1) || (s == 2 && i == 0), "Caught int");
 		return;
 	}
@@ -158,7 +187,7 @@ static int violations = 0;
 static void throw_zero()
 {
 	violations++;
-fprintf(stderr, "Throwing 0\n");
+	fprintf(stderr, "Throwing 0\n");
 	throw 0;
 }
 
@@ -207,6 +236,7 @@ void test_exceptions(void)
 	{
 		TEST(0, "Bad cast was not caught correctly");
 	}
+	test_const();
 
 
 	//printf("Test: %s\n",

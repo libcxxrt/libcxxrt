@@ -79,6 +79,7 @@ void test_type_info(void)
 	Root *b2 = &root;
 	Root *v1 = &virt1;
 	Virt1 *d1 = &diamond;
+	Root *up = &diamond;
 	b->test = 12;
 	f->test = 12;
 	b2->test = 12;
@@ -103,6 +104,8 @@ void test_type_info(void)
 	d2->test = 12;
 	TEST(12 == dynamic_cast<Diamond2*>(d2)->test, "Casting Diamond2 to Diamond2");
 	TEST(12 == dynamic_cast<Virt2a*>(d2)->test, "Casting Diamond2 to Virt2a");
+	TEST(&diamond == dynamic_cast<Diamond*>(up), "Downcasting root-pointer to diamond");
+	TEST(0 == dynamic_cast<Diamond*>(&root), "Downcasting root to diamond");
 
 	TEST(0 == dynamic_cast<Sub1*>(b2), "Casting Root to Sub1 (0 expected)");
 }
