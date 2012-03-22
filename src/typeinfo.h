@@ -70,6 +70,14 @@ namespace std
 		 */
 		public:
 		/**
+		 * Returns true if this is some pointer type, false otherwise.
+		 */
+		virtual bool __is_pointer_p() const { return false; }
+		/**
+		 * Returns true if this is some function type, false otherwise.
+		 */
+		virtual bool __is_function_p() const { return false; }
+		/**
 		 * Catch function.  Allows external libraries to implement
 		 * their own basic types.  This is used, for example, in the
 		 * GNUstep Objective-C runtime to allow Objective-C types to be
@@ -95,14 +103,6 @@ namespace std
 		{
 			return false;
 		}
-		/**
-		 * Returns true if this is some pointer type, false otherwise.
-		 */
-		virtual bool __is_pointer_p() const { return false; }
-		/**
-		 * Returns true if this is some function type, false otherwise.
-		 */
-		virtual bool __is_function_p() const { return false; }
 	};
 }
 
