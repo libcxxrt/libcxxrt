@@ -32,6 +32,7 @@
 #include <pthread.h>
 #include "typeinfo.h"
 #include "dwarf_eh.h"
+#include "atomic.h"
 #include "cxxabi.h"
 
 #pragma weak pthread_key_create
@@ -1328,7 +1329,7 @@ namespace std
 	{
 		if (thread_local_handlers) { return pathscale::set_unexpected(f); }
 
-		return __sync_lock_test_and_set(&unexpectedHandler, f);
+		return ATOMIC_SWAP(&terminateHandler, f);
 	}
 	/**
 	 * Sets the function that is called to terminate the program.
@@ -1336,7 +1337,8 @@ namespace std
 	terminate_handler set_terminate(terminate_handler f) throw()
 	{
 		if (thread_local_handlers) { return pathscale::set_terminate(f); }
-		return __sync_lock_test_and_set(&terminateHandler, f);
+
+		return ATOMIC_SWAP(&terminateHandler, f);
 	}
 	/**
 	 * Terminates the program, calling a custom terminate implementation if
@@ -1390,7 +1392,7 @@ namespace std
 		{
 			return info->unexpectedHandler;
 		}
-		return unexpectedHandler;
+		return ATOMIC_LOAD(&unexpectedHandler);
 	}
 	/**
 	 * Returns the current terminate handler.
@@ -1402,7 +1404,7 @@ namespace std
 		{
 			return info->terminateHandler;
 		}
-		return terminateHandler;
+		return ATOMIC_LOAD(&terminateHandler);
 	}
 }
 #ifdef __arm__
