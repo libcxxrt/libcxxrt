@@ -37,7 +37,7 @@ The default build system does not perform any installation.  It is expected that
 
 There are three files that you may consider installing:
 
-- cxxabi.h
+- cxxabi.h (and unwind.h and either unwind-arm.h or unwind-itanium.h)
 - libcxxrt.a
 - libcxxrt.so
 
