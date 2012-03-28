@@ -74,6 +74,10 @@ namespace std
 __attribute__((weak))
 void* operator new(size_t size)
 {
+	if (0 == size)
+	{
+		size = 1;
+	}
 	void * mem = malloc(size);
 	while (0 == mem)
 	{
@@ -95,6 +99,10 @@ void* operator new(size_t size)
 __attribute__((weak))
 void* operator new(size_t size, const std::nothrow_t &) throw()
 {
+	if (0 == size)
+	{
+		size = 1;
+	}
 	void *mem = malloc(size);
 	while (0 == mem)
 	{
