@@ -284,7 +284,6 @@ namespace ABI_NAMESPACE
 			/** Pointer is a pointer to a member of an incomplete class. */
 			__incomplete_class_mask = 0x10
 		};
-		virtual bool __is_pointer_p() const { return true; }
 		virtual bool __do_catch(const type_info *thrown_type,
 		                        void **thrown_object,
 		                        unsigned outer) const;
@@ -296,6 +295,7 @@ namespace ABI_NAMESPACE
 	struct __pointer_type_info : public __pbase_type_info
 	{
 		virtual ~__pointer_type_info();
+		virtual bool __is_pointer_p() const { return true; }
 	};
 
 	/**
