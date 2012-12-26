@@ -1,6 +1,5 @@
 /**
  * Copyright (c) 2012 David Chisnall.
- * This work was funded by TBricks.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -21,6 +20,8 @@
  * IN THE SOFTWARE.
  *
  */
+
+
 void __cxa_finalize(void *d );
 
 extern void __dso_handle;
