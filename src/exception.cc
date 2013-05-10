@@ -214,8 +214,6 @@ namespace std
 
 }
 
-extern "C" std::type_info *__cxa_current_exception_type();
-
 /**
  * Class of exceptions to distinguish between this and other exception types.
  *
