@@ -41,6 +41,8 @@
  * initialised.  
  */
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <pthread.h>
 #include <assert.h>
 #include "atomic.h"
@@ -48,49 +50,75 @@
 #ifdef __arm__
 // ARM ABI - 32-bit guards.
 
+/*
+ * The least significant bit of the guard variable indicates that the object
+ * has been initialised, the most significant bit is used for a spinlock.
+ */
+static const uint32_t LOCKED = ((uint32_t)1) << 31;
+static const uint32_t INITIALISED = 1;
+
 /**
  * Acquires a lock on a guard, returning 0 if the object has already been
  * initialised, and 1 if it has not.  If the object is already constructed then
  * this function just needs to read a byte from memory and return.
  */
-extern "C" int __cxa_guard_acquire(volatile int32_t *guard_object)
+extern "C" int __cxa_guard_acquire(volatile uint32_t *guard_object)
 {
-	if ((1<<31) == *guard_object) { return 0; }
-	// If we can atomically move the value from 0 -> 1, then this is
-	// uninitialised.
-	if (__sync_bool_compare_and_swap(guard_object, 0, 1))
+	// Not an atomic read, doesn't establish a happens-before relationship, but
+	// if one is already established and we end up seeing an initialised state
+	// then it's a fast path, otherwise we'll do something more expensive than
+	// this test anyway...
+	if ((INITIALISED == *guard_object)) { return 0; }
+	// Spin trying to do the initialisation
+	while (1)
 	{
-		return 1;
-	}
-	// If the value is not 0, some other thread was initialising this.  Spin
-	// until it's finished.
-	while (__sync_bool_compare_and_swap(guard_object, (1<<31), (1<<31)))
-	{
-		// If the other thread aborted, then we grab the lock
-		if (__sync_bool_compare_and_swap(guard_object, 0, 1))
+		// Loop trying to move the value of the guard from 0 (not
+		// locked, not initialised) to the locked-uninitialised
+		// position.
+		switch (__sync_val_compare_and_swap(guard_object, 0, LOCKED))
 		{
-			return 1;
+			// If the old value was 0, we succeeded, so continue
+			// initialising
+			case 0:
+				return 1;
+			// If this was already initialised, return and let the caller skip
+			// initialising it again.
+			case INITIALISED:
+				return 0;
+			// If it is locked by another thread, relinquish the CPU and try
+			// again later.
+			case LOCKED:
+				sched_yield();
+				break;
+			// If it is some other value, then something has gone badly wrong.
+			// Give up.
+			default:
+				fprintf(stderr, "Invalid state detected attempting to lock static initialiser.\n");
+				abort();
 		}
-		sched_yield();
 	}
-	return 0;
+	__builtin_unreachable();
 }
 
 /**
  * Releases the lock without marking the object as initialised.  This function
  * is called if initialising a static causes an exception to be thrown.
  */
-extern "C" void __cxa_guard_abort(int32_t *guard_object)
+extern "C" void __cxa_guard_abort(uint32_t *guard_object)
 {
-	assert(__sync_bool_compare_and_swap(guard_object, 1, 0));
+	__attribute__((unused))
+	bool reset = __sync_bool_compare_and_swap(guard_object, LOCKED, 0);
+	assert(reset);
 }
 /**
  * Releases the guard and marks the object as initialised.  This function is
  * called after successful initialisation of a static.
  */
-extern "C" void __cxa_guard_release(int32_t *guard_object)
+extern "C" void __cxa_guard_release(uint32_t *guard_object)
 {
-	assert(__sync_bool_compare_and_swap(guard_object, 1, (1<<31)));
+	__attribute__((unused))
+	bool reset = __sync_bool_compare_and_swap(guard_object, LOCKED, INITIALISED);
+	assert(reset);
 }
 
 
