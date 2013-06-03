@@ -97,7 +97,8 @@ extern "C" int __cxa_guard_acquire(volatile uint32_t *guard_object)
 				abort();
 		}
 	}
-	__builtin_unreachable();
+	//__builtin_unreachable();
+	return 0;
 }
 
 /**
