@@ -111,6 +111,9 @@ void* operator new(size_t size, const std::nothrow_t &) throw()
 
 __attribute__((weak))
 void operator delete(void * ptr)
+#if __cplusplus < 201000L
+throw()
+#endif
 {
 	free(ptr);
 }
@@ -118,6 +121,9 @@ void operator delete(void * ptr)
 
 __attribute__((weak))
 void * operator new[](size_t size)
+#if __cplusplus < 201000L
+throw(std::bad_alloc)
+#endif
 {
 	return ::operator new(size);
 }
@@ -137,7 +143,10 @@ void * operator new[](size_t size, const std::nothrow_t &) throw()
 
 
 __attribute__((weak))
-void operator delete[](void * ptr) throw()
+void operator delete[](void * ptr)
+#if __cplusplus < 201000L
+throw()
+#endif
 {
 	::operator delete(ptr);
 }
