@@ -41,9 +41,21 @@
 #pragma weak pthread_once
 #ifdef LIBCXXRT_WEAK_LOCKS
 #pragma weak pthread_mutex_lock
+#define pthread_mutex_lock(mtx) do {\
+	if (pthread_mutex_lock) pthread_mutex_lock(mtx);\
+	} while(0)
 #pragma weak pthread_mutex_unlock
+#define pthread_mutex_unlock(mtx) do {\
+	if (pthread_mutex_unlock) pthread_mutex_unlock(mtx);\
+	} while(0)
 #pragma weak pthread_cond_signal
+#define pthread_cond_signal(cv) do {\
+	if (pthread_cond_signal) pthread_cond_signal(cv);\
+	} while(0)
 #pragma weak pthread_cond_wait
+#define pthread_cond_wait(cv, mtx) do {\
+	if (pthread_cond_wait) pthread_cond_wait(cv, mtx);\
+	} while(0)
 #endif
 
 using namespace ABI_NAMESPACE;
@@ -448,7 +460,7 @@ static char *emergency_malloc(size_t size)
 	// Only 4 emergency buffers allowed per thread!
 	if (info->emergencyBuffersHeld > 3) { return 0; }
 
-	if (pthread_mutex_lock) { pthread_mutex_lock(&emergency_malloc_lock); }
+	pthread_mutex_lock(&emergency_malloc_lock);
 	int buffer = -1;
 	while (buffer < 0)
 	{
@@ -459,7 +471,7 @@ static char *emergency_malloc(size_t size)
 		void *m = calloc(1, size);
 		if (0 != m)
 		{
-			if (pthread_mutex_unlock) { pthread_mutex_unlock(&emergency_malloc_lock); }
+			pthread_mutex_unlock(&emergency_malloc_lock);
 			return (char*)m;
 		}
 		for (int i=0 ; i<16 ; i++)
@@ -476,10 +488,10 @@ static char *emergency_malloc(size_t size)
 		// of the emergency buffers.
 		if (buffer < 0)
 		{
-			if (pthread_cond_wait) { pthread_cond_wait(&emergency_malloc_wait, &emergency_malloc_lock); }
+			pthread_cond_wait(&emergency_malloc_wait, &emergency_malloc_lock);
 		}
 	}
-	if (pthread_mutex_unlock) { pthread_mutex_unlock(&emergency_malloc_lock); }
+	pthread_mutex_unlock(&emergency_malloc_lock);
 	info->emergencyBuffersHeld++;
 	return emergency_buffer + (1024 * buffer);
 }
@@ -512,13 +524,13 @@ static void emergency_malloc_free(char *ptr)
 	memset((void*)ptr, 0, 1024);
 	// Signal the condition variable to wake up any threads that are blocking
 	// waiting for some space in the emergency buffer
-	if (pthread_mutex_lock) { pthread_mutex_lock(&emergency_malloc_lock); }
+	pthread_mutex_lock(&emergency_malloc_lock);
 	// In theory, we don't need to do this with the lock held.  In practice,
 	// our array of bools will probably be updated using 32-bit or 64-bit
 	// memory operations, so this update may clobber adjacent values.
 	buffer_allocated[buffer] = false;
-	if (pthread_cond_signal) { pthread_cond_signal(&emergency_malloc_wait); }
-	if (pthread_mutex_lock) { pthread_mutex_unlock(&emergency_malloc_lock); }
+	pthread_cond_signal(&emergency_malloc_wait);
+	pthread_mutex_unlock(&emergency_malloc_lock);
 }
 
 static char *alloc_or_die(size_t size)
