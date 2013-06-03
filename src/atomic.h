@@ -27,3 +27,14 @@
 #define ATOMIC_LOAD(addr)\
 	(__sync_synchronize(), *addr)
 #endif
+
+#if __has_builtin(__c11_atomic_store)
+#define ATOMIC_STORE(addr, value)\
+	__c11_atomic_store((_Atomic(__typeof__(*addr))*)addr, value, __ATOMIC_RELEASE)
+#else
+#define ATOMIC_STORE(addr, value)\
+	do {\
+		*addr = value;\
+		(__sync_synchronize(), *addr);\
+	} while (0)
+#endif

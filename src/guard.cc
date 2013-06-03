@@ -43,6 +43,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <assert.h>
+#include "atomic.h"
 
 #ifdef __arm__
 // ARM ABI - 32-bit guards.
@@ -103,8 +104,8 @@ extern "C" void __cxa_guard_release(int32_t *guard_object)
 static int32_t *low_32_bits(volatile int64_t *ptr)
 {
 	int32_t *low= (int32_t*)ptr;
-	// Test if the machine is big endian - constant propagation at compile time
-	// should eliminate this completely.
+	// Test if the machine is big endian - constant propagation at compile
+	// time should eliminate this completely.
 	int one = 1;
 	if (*(char*)&one != 1)
 	{
@@ -148,7 +149,7 @@ extern "C" int __cxa_guard_acquire(volatile int64_t *guard_object)
 extern "C" void __cxa_guard_abort(int64_t *guard_object)
 {
 	int32_t *lock = low_32_bits(guard_object);
-	*lock = 0;
+	ATOMIC_STORE(lock, 0);
 }
 /**
  * Releases the guard and marks the object as initialised.  This function is
@@ -157,7 +158,9 @@ extern "C" void __cxa_guard_abort(int64_t *guard_object)
 extern "C" void __cxa_guard_release(int64_t *guard_object)
 {
 	// Set the first byte to 1
-	*guard_object |= ((int64_t)1) << 56;
+	// Note: We don't do an atomic load here because getting a stale value
+	// is not a problem in the current implementation.
+	ATOMIC_STORE(guard_object, (*guard_object | ((int64_t)1) << 56));
 	__cxa_guard_abort(guard_object);
 }
 
