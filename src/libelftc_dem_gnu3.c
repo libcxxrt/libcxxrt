@@ -405,6 +405,7 @@ static int	cpp_demangle_read_expression_trinary(struct cpp_demangle_data *,
 		    const char *, size_t, const char *, size_t);
 static int	cpp_demangle_read_function(struct cpp_demangle_data *, int *,
 		    struct vector_type_qualifier *);
+static int	cpp_demangle_local_source_name(struct cpp_demangle_data *ddata);
 static int	cpp_demangle_read_local_name(struct cpp_demangle_data *);
 static int	cpp_demangle_read_name(struct cpp_demangle_data *);
 static int	cpp_demangle_read_nested_name(struct cpp_demangle_data *);
@@ -453,10 +454,18 @@ __cxa_demangle_gnu3(const char *org)
 	struct cpp_demangle_data ddata;
 	ssize_t org_len;
 	unsigned int limit;
-	char *rtn;
+	char *rtn = NULL;
 
 	if (org == NULL)
 		return (NULL);
+
+	if (org_len > 11 && !strncmp(org, "_GLOBAL__I_", 11)) {
+		if ((rtn = malloc(org_len + 19)) == NULL)
+			return (NULL);
+		snprintf(rtn, org_len + 19,
+		    "global constructors keyed to %s", org + 11);
+		return (rtn);
+	}
 
 	// Try demangling as a type for short encodings
 	if (((org_len = strlen(org)) < 2) || (org[0] != '_' || org[1] != 'Z' )) {
@@ -466,13 +475,6 @@ __cxa_demangle_gnu3(const char *org)
 			goto clean;
 		rtn = vector_str_get_flat(&ddata.output, (size_t *) NULL);
 		goto clean;
-	}
-	if (org_len > 11 && !strncmp(org, "_GLOBAL__I_", 11)) {
-		if ((rtn = malloc(org_len + 19)) == NULL)
-			return (NULL);
-		snprintf(rtn, org_len + 19,
-		    "global constructors keyed to %s", org + 11);
-		return (rtn);
 	}
 
 
@@ -604,13 +606,12 @@ cpp_demangle_push_fp(struct cpp_demangle_data *ddata,
 		return (0);
 
 	rtn = 0;
-	if ((len = strlen(f)) > 0 &&
-	    cpp_demangle_push_str(ddata, f, len))
-		rtn = 1;
+	if ((len = strlen(f)) > 0)
+		rtn = cpp_demangle_push_str(ddata, f, len); 
 
 	free(f);
 
-	return (0);
+	return (rtn);
 }
 
 static int
@@ -655,6 +656,7 @@ cpp_demangle_push_subst_v(struct cpp_demangle_data *ddata, struct vector_str *v)
 		return (0);
 
 	rtn = cpp_demangle_push_subst(ddata, str, str_len);
+
 	free(str);
 
 	return (rtn);
@@ -2054,7 +2056,7 @@ clean:
 	free(subst_str);
 	vector_str_dest(&v);
 
-	return (1);
+	return (rtn);
 }
 
 static int
@@ -2995,6 +2997,40 @@ cpp_demangle_read_uqname(struct cpp_demangle_data *ddata)
 	/* source name */
 	if (ELFTC_ISDIGIT(*ddata->cur) != 0)
 		return (cpp_demangle_read_sname(ddata));
+
+ 
+	/* local source name */ 
+	if (*ddata->cur == 'L') 
+		return (cpp_demangle_local_source_name(ddata)); 
+ 
+	return (1); 
+} 
+ 
+/* 
+ * Read local source name. 
+ * 
+ * References: 
+ *   http://gcc.gnu.org/bugzilla/show_bug.cgi?id=31775 
+ *   http://gcc.gnu.org/viewcvs?view=rev&revision=124467 
+ */ 
+static int 
+cpp_demangle_local_source_name(struct cpp_demangle_data *ddata) 
+{ 
+	/* L */ 
+	if (ddata == NULL || *ddata->cur != 'L') 
+		return (0); 
+	++ddata->cur; 
+
+	/* source name */ 
+	if (!cpp_demangle_read_sname(ddata)) 
+		return (0); 
+
+	/* discriminator */ 
+	if (*ddata->cur == '_') { 
+		++ddata->cur; 
+		while (ELFTC_ISDIGIT(*ddata->cur) != 0) 
+			++ddata->cur; 
+	} 
 
 	return (1);
 }
