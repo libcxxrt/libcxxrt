@@ -459,6 +459,7 @@ __cxa_demangle_gnu3(const char *org)
 	if (org == NULL)
 		return (NULL);
 
+	org_len = strlen(org);
 	if (org_len > 11 && !strncmp(org, "_GLOBAL__I_", 11)) {
 		if ((rtn = malloc(org_len + 19)) == NULL)
 			return (NULL);
@@ -468,7 +469,7 @@ __cxa_demangle_gnu3(const char *org)
 	}
 
 	// Try demangling as a type for short encodings
-	if (((org_len = strlen(org)) < 2) || (org[0] != '_' || org[1] != 'Z' )) {
+	if ((org_len < 2) || (org[0] != '_' || org[1] != 'Z' )) {
 		if (!cpp_demangle_data_init(&ddata, org))
 			return (NULL);
 		if (!cpp_demangle_read_type(&ddata, 0))
@@ -1870,9 +1871,18 @@ static int
 cpp_demangle_read_sname(struct cpp_demangle_data *ddata)
 {
 	long len;
+	int err;
 
 	if (ddata == NULL || cpp_demangle_read_number(ddata, &len) == 0 ||
-	    len <= 0 || cpp_demangle_push_str(ddata, ddata->cur, len) == 0)
+	    len <= 0)
+		return (0);
+
+ 	if (len == 12 && (memcmp("_GLOBAL__N_1", ddata->cur, 12) == 0))
+		err = cpp_demangle_push_str(ddata, "(anonymous namespace)", 21);
+	else
+		err = cpp_demangle_push_str(ddata, ddata->cur, len);
+	
+	if (err == 0)
 		return (0);
 
 	assert(ddata->output.size > 0);
