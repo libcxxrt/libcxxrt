@@ -206,7 +206,7 @@ static int64_t read_sleb128(dw_eh_ptr_t *data)
 	if ((uleb >> (bits-1)) == 1)
 	{
 		// Sign extend by setting all bits in front of it to 1
-		uleb |= INT64_C(-1) << bits;
+		uleb |= ((int64_t)-1) << bits;
 	}
 	return static_cast<int64_t>(uleb);
 }
