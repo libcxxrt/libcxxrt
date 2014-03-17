@@ -673,6 +673,11 @@ static _Unwind_Reason_Code trace(struct _Unwind_Context *context, void *c)
  * If the failure happened by falling off the end of the stack without finding
  * a handler, prints a back trace before aborting.
  */
+#if __GNUC__ > 3 && __GNUC_MINOR__ > 2
+extern "C" void *__cxa_begin_catch(void *e) throw();
+#else
+extern "C" void *__cxa_begin_catch(void *e);
+#endif
 static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exception)
 {
 	switch (err)
@@ -687,6 +692,8 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 			break;
 #endif
 		case _URC_END_OF_STACK:
+			__cxa_begin_catch (&(thrown_exception->unwindHeader));
+ 			std::terminate();
 			fprintf(stderr, "Terminating due to uncaught exception %p", 
 					static_cast<void*>(thrown_exception));
 			thrown_exception = realExceptionFromException(thrown_exception);
@@ -716,6 +723,9 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 			// Print a back trace if no handler is found.
 			// TODO: Make this optional
 			_Unwind_Backtrace(trace, 0);
+
+			// Just abort. No need to call std::terminate for the second time
+			abort();
 			break;
 	}
 	std::terminate();
