@@ -686,7 +686,7 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 		case _URC_FATAL_PHASE1_ERROR:
 			fprintf(stderr, "Fatal error during phase 1 unwinding\n");
 			break;
-#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
+#if !defined(__arm__) || defined(__ARM_DWARF_EH__)
 		case _URC_FATAL_PHASE2_ERROR:
 			fprintf(stderr, "Fatal error during phase 2 unwinding\n");
 			break;
