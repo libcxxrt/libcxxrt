@@ -71,7 +71,7 @@ static void saveLandingPad(struct _Unwind_Context *context,
                            int selector,
                            dw_eh_ptr_t landingPad)
 {
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 	// On ARM, we store the saved exception in the generic part of the structure
 	ucb->barrier_cache.sp = _Unwind_GetGR(context, 13);
 	ucb->barrier_cache.bitpattern[1] = static_cast<uint32_t>(selector);
@@ -95,7 +95,7 @@ static int loadLandingPad(struct _Unwind_Context *context,
                           unsigned long *selector,
                           dw_eh_ptr_t *landingPad)
 {
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 	*selector = ucb->barrier_cache.bitpattern[1];
 	*landingPad = reinterpret_cast<dw_eh_ptr_t>(ucb->barrier_cache.bitpattern[3]);
 	return 1;
@@ -113,7 +113,7 @@ static int loadLandingPad(struct _Unwind_Context *context,
 static inline _Unwind_Reason_Code continueUnwinding(struct _Unwind_Exception *ex,
                                                     struct _Unwind_Context *context)
 {
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 	if (__gnu_unwind_frame(ex, context) != _URC_OK) { return _URC_FAILURE; }
 #endif
 	return _URC_CONTINUE_UNWIND;
@@ -204,7 +204,7 @@ struct __cxa_dependent_exception
 	terminate_handler terminateHandler;
 	__cxa_exception *nextException;
 	int handlerCount;
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 	_Unwind_Exception *nextCleanup;
 	int cleanupCount;
 #endif
@@ -686,7 +686,7 @@ static void report_failure(_Unwind_Reason_Code err, __cxa_exception *thrown_exce
 		case _URC_FATAL_PHASE1_ERROR:
 			fprintf(stderr, "Fatal error during phase 1 unwinding\n");
 			break;
-#ifndef __arm__
+#if !defined(__arm__) || defined(__ARM_DWARF_EH__)
 		case _URC_FATAL_PHASE2_ERROR:
 			fprintf(stderr, "Fatal error during phase 2 unwinding\n");
 			break;
@@ -982,7 +982,7 @@ static handler_type check_action_record(_Unwind_Context *context,
 		{
 			bool matched = false;
 			*selector = filter;
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 			filter++;
 			std::type_info *handler_type = get_type_info_entry(context, lsda, filter--);
 			while (handler_type)
@@ -1027,7 +1027,7 @@ static handler_type check_action_record(_Unwind_Context *context,
 static void pushCleanupException(_Unwind_Exception *exceptionObject,
                                  __cxa_exception *ex)
 {
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 	__cxa_thread_info *info = thread_info_fast();
 	if (ex)
 	{
@@ -1072,7 +1072,7 @@ BEGIN_PERSONALITY_FUNCTION(__gxx_personality_v0)
 		realEx = realExceptionFromException(ex);
 	}
 
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 	unsigned char *lsda_addr =
 		static_cast<unsigned char*>(_Unwind_GetLanguageSpecificData(context));
 #else
@@ -1496,7 +1496,7 @@ namespace std
 		return ATOMIC_LOAD(&terminateHandler);
 	}
 }
-#ifdef __arm__
+#if defined(__arm__) && !defined(__ARM_DWARF_EH__)
 extern "C" _Unwind_Exception *__cxa_get_cleanup(void)
 {
 	__cxa_thread_info *info = thread_info_fast();
