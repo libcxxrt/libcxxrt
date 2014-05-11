@@ -117,7 +117,7 @@ static const lock_t INITIAL = 0;
  */
 extern "C" int __cxa_guard_acquire(volatile guard_t *guard_object)
 {
-	lock_t old, dst;
+	lock_t old;
 	// Not an atomic read, doesn't establish a happens-before relationship, but
 	// if one is already established and we end up seeing an initialised state
 	// then it's a fast path, otherwise we'll do something more expensive than
@@ -130,12 +130,8 @@ extern "C" int __cxa_guard_acquire(volatile guard_t *guard_object)
 		// Loop trying to move the value of the guard from 0 (not
 		// locked, not initialised) to the locked-uninitialised
 		// position.
-		if (INIT_PART(guard_object) == LOCK_PART(guard_object))
-			dst = INITIALISED;
-		else
-			dst = LOCKED;
 		old = __sync_val_compare_and_swap(LOCK_PART(guard_object),
-		    INITIAL, dst);
+		    INITIAL, LOCKED);
 		if (old == INITIAL) {
 			// Lock obtained.  If lock and init bit are
 			// in separate words, check for init race.
