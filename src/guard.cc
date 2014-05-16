@@ -70,14 +70,14 @@
 #ifdef __arm__
 // ARM ABI - 32-bit guards.
 typedef uint32_t guard_t;
-typedef uint32_t lock_t;
+typedef uint32_t guard_lock_t;
 static const uint32_t LOCKED = static_cast<guard_t>(1) << 31;
 static const uint32_t INITIALISED = 1;
 #define LOCK_PART(guard) (guard)
 #define INIT_PART(guard) (guard)
 #elif defined(_LP64)
 typedef uint64_t guard_t;
-typedef uint64_t lock_t;
+typedef uint64_t guard_lock_t;
 #	if defined(__LITTLE_ENDIAN__)
 static const guard_t LOCKED = static_cast<guard_t>(1) << 63;
 static const guard_t INITIALISED = 1;
@@ -93,8 +93,8 @@ typedef struct {
 	uint32_t init_half;
 	uint32_t lock_half;
 } guard_t;
-typedef uint32_t lock_t;
-static const uint32_t LOCKED = static_cast<lock_t>(1) << 31;
+typedef uint32_t guard_lock_t;
+static const uint32_t LOCKED = static_cast<guard_lock_t>(1) << 31;
 static const uint32_t INITIALISED = 1;
 #	else
 typedef struct {
@@ -103,12 +103,12 @@ typedef struct {
 } guard_t;
 static_assert(sizeof(guard_t) == sizeof(uint64_t), "");
 static const uint32_t LOCKED = 1;
-static const uint32_t INITIALISED = static_cast<lock_t>(1) << 24;
+static const uint32_t INITIALISED = static_cast<guard_lock_t>(1) << 24;
 #	endif
 #define LOCK_PART(guard) (&(guard)->lock_half)
 #define INIT_PART(guard) (&(guard)->init_half)
 #endif
-static const lock_t INITIAL = 0;
+static const guard_lock_t INITIAL = 0;
 
 /**
  * Acquires a lock on a guard, returning 0 if the object has already been
@@ -117,7 +117,7 @@ static const lock_t INITIAL = 0;
  */
 extern "C" int __cxa_guard_acquire(volatile guard_t *guard_object)
 {
-	lock_t old;
+	guard_lock_t old;
 	// Not an atomic read, doesn't establish a happens-before relationship, but
 	// if one is already established and we end up seeing an initialised state
 	// then it's a fast path, otherwise we'll do something more expensive than
@@ -179,7 +179,7 @@ extern "C" void __cxa_guard_abort(volatile guard_t *guard_object)
  */
 extern "C" void __cxa_guard_release(volatile guard_t *guard_object)
 {
-	lock_t old;
+	guard_lock_t old;
 	if (INIT_PART(guard_object) == LOCK_PART(guard_object))
 		old = LOCKED;
 	else
