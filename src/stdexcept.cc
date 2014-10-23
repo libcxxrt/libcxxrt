@@ -90,5 +90,10 @@ bad_array_new_length& bad_array_new_length::operator=(const bad_array_new_length
 	return *this;
 }
 
+const char* bad_array_new_length::what() const throw()
+{
+	return "std::bad_array_new_length";
+}
+
 } // namespace std
 
