@@ -81,13 +81,13 @@ namespace std
 		virtual const char* what() const throw();
 	};
 
-	class bad_array_new_length: public exception
+	class bad_array_new_length: public bad_alloc
 	{
 	public:
 		bad_array_new_length() throw();
 		bad_array_new_length(const bad_array_new_length&) throw();
 		bad_array_new_length& operator=(const bad_array_new_length&) throw();
-		virtual ~bad_array_new_length();
+		virtual ~bad_array_new_length() throw();
 		virtual const char *what() const throw();
 	};
 
