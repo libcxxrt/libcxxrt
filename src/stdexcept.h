@@ -87,7 +87,7 @@ namespace std
 		bad_array_new_length() throw();
 		bad_array_new_length(const bad_array_new_length&) throw();
 		bad_array_new_length& operator=(const bad_array_new_length&) throw();
-		virtual ~bad_array_new_length() throw();
+		virtual ~bad_array_new_length();
 		virtual const char *what() const throw();
 	};
 
