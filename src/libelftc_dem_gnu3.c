@@ -608,7 +608,7 @@ cpp_demangle_push_fp(struct cpp_demangle_data *ddata,
 
 	rtn = 0;
 	if ((len = strlen(f)) > 0)
-		rtn = cpp_demangle_push_str(ddata, f, len); 
+		rtn = cpp_demangle_push_str(ddata, f, len);
 
 	free(f);
 
@@ -3008,39 +3008,39 @@ cpp_demangle_read_uqname(struct cpp_demangle_data *ddata)
 	if (ELFTC_ISDIGIT(*ddata->cur) != 0)
 		return (cpp_demangle_read_sname(ddata));
 
- 
-	/* local source name */ 
-	if (*ddata->cur == 'L') 
-		return (cpp_demangle_local_source_name(ddata)); 
- 
-	return (1); 
-} 
- 
-/* 
- * Read local source name. 
- * 
- * References: 
- *   http://gcc.gnu.org/bugzilla/show_bug.cgi?id=31775 
- *   http://gcc.gnu.org/viewcvs?view=rev&revision=124467 
- */ 
-static int 
-cpp_demangle_local_source_name(struct cpp_demangle_data *ddata) 
-{ 
-	/* L */ 
-	if (ddata == NULL || *ddata->cur != 'L') 
-		return (0); 
-	++ddata->cur; 
 
-	/* source name */ 
-	if (!cpp_demangle_read_sname(ddata)) 
-		return (0); 
+	/* local source name */
+	if (*ddata->cur == 'L')
+		return (cpp_demangle_local_source_name(ddata));
 
-	/* discriminator */ 
-	if (*ddata->cur == '_') { 
-		++ddata->cur; 
-		while (ELFTC_ISDIGIT(*ddata->cur) != 0) 
-			++ddata->cur; 
-	} 
+	return (1);
+}
+
+/*
+ * Read local source name.
+ *
+ * References:
+ *   http://gcc.gnu.org/bugzilla/show_bug.cgi?id=31775
+ *   http://gcc.gnu.org/viewcvs?view=rev&revision=124467
+ */
+static int
+cpp_demangle_local_source_name(struct cpp_demangle_data *ddata)
+{
+	/* L */
+	if (ddata == NULL || *ddata->cur != 'L')
+		return (0);
+	++ddata->cur;
+
+	/* source name */
+	if (!cpp_demangle_read_sname(ddata))
+		return (0);
+
+	/* discriminator */
+	if (*ddata->cur == '_') {
+		++ddata->cur;
+		while (ELFTC_ISDIGIT(*ddata->cur) != 0)
+			++ddata->cur;
+	}
 
 	return (1);
 }
