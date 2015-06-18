@@ -1877,11 +1877,11 @@ cpp_demangle_read_sname(struct cpp_demangle_data *ddata)
 	    len <= 0)
 		return (0);
 
- 	if (len == 12 && (memcmp("_GLOBAL__N_1", ddata->cur, 12) == 0))
+	if (len == 12 && (memcmp("_GLOBAL__N_1", ddata->cur, 12) == 0))
 		err = cpp_demangle_push_str(ddata, "(anonymous namespace)", 21);
 	else
 		err = cpp_demangle_push_str(ddata, ddata->cur, len);
-	
+
 	if (err == 0)
 		return (0);
 
@@ -3007,7 +3007,6 @@ cpp_demangle_read_uqname(struct cpp_demangle_data *ddata)
 	/* source name */
 	if (ELFTC_ISDIGIT(*ddata->cur) != 0)
 		return (cpp_demangle_read_sname(ddata));
-
 
 	/* local source name */
 	if (*ddata->cur == 'L')
