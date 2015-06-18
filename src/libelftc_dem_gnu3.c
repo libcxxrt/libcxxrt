@@ -1646,6 +1646,15 @@ cpp_demangle_read_encoding(struct cpp_demangle_data *ddata)
 			return (0);
 		break;
 
+	case SIMPLE_HASH('T', 'I'):
+		/* typeinfo structure */
+		if (!cpp_demangle_push_str(ddata, "typeinfo for ", 13))
+			return (0);
+		ddata->cur += 2;
+		if (*ddata->cur == '\0')
+			return (0);
+		return (cpp_demangle_read_type(ddata, 0));
+
 	case SIMPLE_HASH('T', 'J'):
 		/* java class */
 		if (!cpp_demangle_push_str(ddata, "java Class for ", 15))
@@ -1655,17 +1664,14 @@ cpp_demangle_read_encoding(struct cpp_demangle_data *ddata)
 			return (0);
 		return (cpp_demangle_read_type(ddata, 0));
 
-	case SIMPLE_HASH('T', 'I'):
-		/* typeinfo structure */
-		/* FALLTHROUGH */
 	case SIMPLE_HASH('T', 'S'):
 		/* RTTI name (NTBS) */
-		if (!cpp_demangle_push_str(ddata, "typeinfo for ", 14))
+		if (!cpp_demangle_push_str(ddata, "typeinfo name for ", 18))
 			return (0);
 		ddata->cur += 2;
 		if (*ddata->cur == '\0')
 			return (0);
-		return (cpp_demangle_read_type(ddata, 1));
+		return (cpp_demangle_read_type(ddata, 0));
 
 	case SIMPLE_HASH('T', 'T'):
 		/* VTT table */
@@ -1674,7 +1680,7 @@ cpp_demangle_read_encoding(struct cpp_demangle_data *ddata)
 		ddata->cur += 2;
 		if (*ddata->cur == '\0')
 			return (0);
-		return (cpp_demangle_read_type(ddata, 1));
+		return (cpp_demangle_read_type(ddata, 0));
 
 	case SIMPLE_HASH('T', 'v'):
 		/* virtual function virtual override thunk */
@@ -1695,7 +1701,7 @@ cpp_demangle_read_encoding(struct cpp_demangle_data *ddata)
 		ddata->cur += 2;
 		if (*ddata->cur == '\0')
 			return (0);
-		return (cpp_demangle_read_type(ddata, 1));
+		return (cpp_demangle_read_type(ddata, 0));
 
 	case SIMPLE_HASH('T', 'W'):
 		/* TLS wrapper function */
