@@ -23,6 +23,11 @@ add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
 set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
 target_link_libraries(cxxrt-test-shared cxxrt-shared pthread dl c)
 
+include_directories(${CMAKE_SOURCE_DIR}/src)
+add_executable(cxxrt-test-foreign-exceptions test_foreign_exceptions.cc)
+set_property(TARGET cxxrt-test-foreign-exceptions PROPERTY LINK_FLAGS "-nodefaultlibs -Wl,--wrap,_Unwind_RaiseException")
+target_link_libraries(cxxrt-test-foreign-exceptions cxxrt-static gcc_s pthread dl c)
+
 add_test(cxxrt-test-static-test
          ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-static
@@ -34,6 +39,9 @@ add_test(cxxrt-test-shared-test
          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-shared
          ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
          ${CMAKE_CURRENT_BINARY_DIR}/test-shared-output.log)
+
+add_test(cxxrt-test-foreign-exceptions
+         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-foreign-exceptions)
 
 set(valgrind "valgrind -q")
 
