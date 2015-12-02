@@ -344,7 +344,8 @@ static void thread_cleanup(void* thread_info)
 		if (info->foreign_exception_state != __cxa_thread_info::none)
 		{
 			_Unwind_Exception *e = reinterpret_cast<_Unwind_Exception*>(info->globals.caughtExceptions);
-			e->exception_cleanup(_URC_FOREIGN_EXCEPTION_CAUGHT, e);
+			if (e->exception_cleanup)
+				e->exception_cleanup(_URC_FOREIGN_EXCEPTION_CAUGHT, e);
 		}
 		else
 		{
@@ -1284,12 +1285,13 @@ extern "C" void __cxa_end_catch()
 	
 	if (ti->foreign_exception_state != __cxa_thread_info::none)
 	{
-		globals->caughtExceptions = 0;
 		if (ti->foreign_exception_state != __cxa_thread_info::rethrown)
 		{
 			_Unwind_Exception *e = reinterpret_cast<_Unwind_Exception*>(ti->globals.caughtExceptions);
-			e->exception_cleanup(_URC_FOREIGN_EXCEPTION_CAUGHT, e);
+			if (e->exception_cleanup)
+				e->exception_cleanup(_URC_FOREIGN_EXCEPTION_CAUGHT, e);
 		}
+		globals->caughtExceptions = 0;
 		ti->foreign_exception_state = __cxa_thread_info::none;
 		return;
 	}
