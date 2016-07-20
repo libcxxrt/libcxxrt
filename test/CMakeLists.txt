@@ -17,16 +17,16 @@ add_custom_target(test-expected-output ALL
 
 add_executable(cxxrt-test-static ${CXXTEST_SOURCES})
 set_property(TARGET cxxrt-test-static PROPERTY LINK_FLAGS -nodefaultlibs)
-target_link_libraries(cxxrt-test-static cxxrt-static gcc_s pthread dl c)
+target_link_libraries(cxxrt-test-static cxxrt-static gcc_s pthread ${CMAKE_DL_LIBS} c)
 
 add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
 set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
-target_link_libraries(cxxrt-test-shared cxxrt-shared pthread dl c)
+target_link_libraries(cxxrt-test-shared cxxrt-shared pthread ${CMAKE_DL_LIBS} c)
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
 add_executable(cxxrt-test-foreign-exceptions test_foreign_exceptions.cc)
 set_property(TARGET cxxrt-test-foreign-exceptions PROPERTY LINK_FLAGS "-nodefaultlibs -Wl,--wrap,_Unwind_RaiseException")
-target_link_libraries(cxxrt-test-foreign-exceptions cxxrt-static gcc_s pthread dl c)
+target_link_libraries(cxxrt-test-foreign-exceptions cxxrt-static gcc_s pthread ${CMAKE_DL_LIBS} c)
 
 add_test(cxxrt-test-static-test
          ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
@@ -72,7 +72,7 @@ if(TEST_LIBUNWIND)
     set_property(TARGET cxxrt-test-libunwind-static PROPERTY LINK_FLAGS
                  "-L${LIBUNWIND_PATH} -nodefaultlibs")
     target_link_libraries(cxxrt-test-libunwind-static cxxrt-static
-                          ${LIBUNWIND_PATH}/libunwind.a pthread gcc dl c)
+                          ${LIBUNWIND_PATH}/libunwind.a pthread gcc ${CMAKE_DL_LIBS} c)
 
     add_test(cxxrt-test-libunwind-static-test
              ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
@@ -84,7 +84,7 @@ if(TEST_LIBUNWIND)
     set_property(TARGET cxxrt-test-libunwind-shared PROPERTY LINK_FLAGS
                  "-L${LIBUNWIND_PATH} -nodefaultlibs")
     target_link_libraries(cxxrt-test-libunwind-shared cxxrt-shared
-                         ${LIBUNWIND_PATH}/libunwind.so  unwind pthread dl c)
+                         ${LIBUNWIND_PATH}/libunwind.so  unwind pthread ${CMAKE_DL_LIBS} c)
 
     add_test(cxxrt-test-libunwind-shared-test
              ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
