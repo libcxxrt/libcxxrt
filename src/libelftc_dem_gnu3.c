@@ -2865,7 +2865,7 @@ again:
 
 	case 'z':
 		/* ellipsis */
-		if (!cpp_demangle_push_str(ddata, "ellipsis", 8))
+		if (!cpp_demangle_push_str(ddata, "...", 3))
 			goto clean;
 		++ddata->cur;
 		goto rtn;
