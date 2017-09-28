@@ -1,4 +1,5 @@
 #include "test.h"
+#include "unwind.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -203,6 +204,55 @@ struct uncaught_exception_checker
 	bool m_uncaught;
 };
 
+void test_rethrown_uncaught_exception()
+{
+	uncaught_exception_checker outer(false);
+	try
+	{
+		try
+		{
+			throw 42;
+		}
+		catch (int)
+		{
+			uncaught_exception_checker inner(true);
+			throw;
+		}
+	}
+	catch (...) {}
+}
+
+static void exception_cleanup(_Unwind_Reason_Code, struct _Unwind_Exception *ex)
+{
+	delete ex;
+}
+
+void test_rethrown_uncaught_foreign_exception()
+{
+	uncaught_exception_checker outer(false);
+	try
+	{
+		try
+		{
+			// Throw a foreign exception.
+			_Unwind_Exception *ex = new _Unwind_Exception;
+			ex->exception_class = 1234;
+			ex->exception_cleanup = exception_cleanup;
+			_Unwind_RaiseException(ex);
+		}
+		catch (...)
+		{
+			// Note: Uncaught exceptions doesn't report foreign exceptions,
+			// because we have no way of receiving a report that the other
+			// language has caught it.
+			uncaught_exception_checker inner(false);
+			throw;
+		}
+	}
+	catch (...) {}
+}
+
+
 void test_uncaught_exception()
 {
 	uncaught_exception_checker outer(false);
@@ -319,6 +369,8 @@ void test_exceptions(void)
 	}
 	test_const();
 	test_uncaught_exception();
+	test_rethrown_uncaught_exception();
+	test_rethrown_uncaught_foreign_exception();
 	test_uncaught_exceptions();
 
 
