@@ -2826,6 +2826,7 @@ again:
 
 	case 'U':
 		/* vendor extended type qualifier */
+		++ddata->cur;
 		if (!cpp_demangle_read_number(ddata, &len))
 			goto clean;
 		if (len <= 0)
