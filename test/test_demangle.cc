@@ -38,6 +38,7 @@ void test_demangle(void)
 	using namespace N;
 	test<int>("int", __LINE__);
 	test<char[4]>("char [4]", __LINE__);
+	test<char[]>("char []", __LINE__);
 	test<Templated<Templated<long, 7>, 8> >(
 	    "N::Templated<N::Templated<long, 7>, 8>", __LINE__);
 	test<Templated<void(long), -1> >(
