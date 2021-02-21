@@ -545,6 +545,7 @@ __cxa_demangle_gnu3(const char *org)
 		return (NULL);
 
 	org_len = strlen(org);
+	rtn = NULL;
 	// Try demangling as a type for short encodings
 	if ((org_len < 2) || (org[0] != '_' || org[1] != 'Z' )) {
 		if (!cpp_demangle_data_init(&ddata, org))
@@ -566,7 +567,6 @@ __cxa_demangle_gnu3(const char *org)
 	if (!cpp_demangle_data_init(&ddata, org + 2))
 		return (NULL);
 
-	rtn = NULL;
 	has_ret = more_type = false;
 
 	if (!cpp_demangle_read_encoding(&ddata))
