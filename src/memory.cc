@@ -97,7 +97,11 @@ void* operator new(size_t size) BADALLOC
 		}
 		else
 		{
+#if defined(_CXXRT_NO_EXCEPTIONS)
+			break;
+#else
 			throw std::bad_alloc();
+#endif
 		}
 		mem = malloc(size);
 	}
@@ -105,6 +109,8 @@ void* operator new(size_t size) BADALLOC
 	return mem;
 }
 
+
+#if !defined(_CXXRT_NO_EXCEPTIONS)
 __attribute__((weak))
 void* operator new(size_t size, const std::nothrow_t &) NOEXCEPT
 {
@@ -116,6 +122,7 @@ void* operator new(size_t size, const std::nothrow_t &) NOEXCEPT
 		return NULL;
 	}
 }
+#endif
 
 
 __attribute__((weak))
@@ -132,6 +139,7 @@ void * operator new[](size_t size) BADALLOC
 }
 
 
+#if !defined(_CXXRT_NO_EXCEPTIONS)
 __attribute__((weak))
 void * operator new[](size_t size, const std::nothrow_t &) NOEXCEPT
 {
@@ -143,6 +151,7 @@ void * operator new[](size_t size, const std::nothrow_t &) NOEXCEPT
 		return NULL;
 	}
 }
+#endif
 
 
 __attribute__((weak))

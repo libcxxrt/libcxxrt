@@ -1,18 +1,23 @@
 
 set(CXXTEST_SOURCES
     test.cc
-    test_exception.cc
     test_guard.cc
     test_typeinfo.cc
     test_demangle.cc
    )
+if (NOT CXXRT_NO_EXCEPTIONS)
+set(CXXTEST_SOURCES
+    ${CXXTEST_SOURCES}
+    test_exception.cc
+   )
+endif()
 
 
 option(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT "Compare tests with system output" ON)
 if(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT)
     add_executable(system-test ${CXXTEST_SOURCES})
 
-    # Generating excpected output with system-test
+    # Generating expected output with system-test
     add_custom_target(test-expected-output ALL
                       COMMAND system-test > ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log 2>&1
                       DEPENDS system-test)
@@ -47,9 +52,10 @@ if(NOT NO_STATIC_TEST)
              ${CMAKE_CURRENT_BINARY_DIR}/test-static-output.log)
 endif()
 
+set(SHARED_LIB_DEPS gcc_s)
 add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
 set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
-target_link_libraries(cxxrt-test-shared cxxrt-shared pthread ${CMAKE_DL_LIBS} c)
+target_link_libraries(cxxrt-test-shared cxxrt-shared pthread ${CMAKE_DL_LIBS} c ${SHARED_LIB_DEPS})
 add_test(cxxrt-test-shared-test
          ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
          ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-shared
@@ -57,7 +63,7 @@ add_test(cxxrt-test-shared-test
          ${CMAKE_CURRENT_BINARY_DIR}/test-shared-output.log)
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
-if(NOT APPLE)
+if(NOT APPLE AND NOT CXXRT_NO_EXCEPTIONS)
     # No --wrap option for the macOS ld
     add_executable(cxxrt-test-foreign-exceptions test_foreign_exceptions.cc)
     set_property(TARGET cxxrt-test-foreign-exceptions PROPERTY LINK_FLAGS "-nodefaultlibs -Wl,--wrap,_Unwind_RaiseException")
@@ -87,7 +93,7 @@ endif()
 # Testing with libunwind
 option(TEST_LIBUNWIND "Test libcxxrt with libunwind" OFF)
 
-if(TEST_LIBUNWIND)
+if(TEST_LIBUNWIND AND NOT CXXRT_NO_EXCEPTIONS)
     if(NOT LIBUNWIND_PATH)
         message(FATAL_ERROR "Path to libunwind should be specified. Please set LIBUNWIND_PATH variable")
     endif()
