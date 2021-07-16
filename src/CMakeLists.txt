@@ -4,6 +4,7 @@ set(CXXRT_SOURCES
     guard.cc
     typeinfo.cc
     memory.cc
+    auxhelper.cc
     libelftc_dem_gnu3.c
    )
 
@@ -12,7 +13,6 @@ set(CXXRT_SOURCES
     ${CXXRT_SOURCES}
     exception.cc
     stdexcept.cc
-    auxhelper.cc
    )
 endif()
 
