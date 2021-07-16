@@ -17,6 +17,7 @@ option(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT "Compare tests with system output" O
 if(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT)
     add_executable(system-test ${CXXTEST_SOURCES})
     set_property(TARGET system-test PROPERTY CXX_STANDARD 11)
+    target_link_libraries(system-test pthread)
 
     # Generating expected output with system-test
     add_custom_target(test-expected-output ALL
