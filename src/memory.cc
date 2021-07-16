@@ -79,6 +79,32 @@ namespace std
 #define BADALLOC
 #endif
 
+namespace
+{
+	/**
+	 * Helper for forwarding from no-throw operators to versions that can
+	 * return nullptr.  Catches any exception and converts it into a nullptr
+	 * return.
+	 */
+	template<void*(New)(size_t)>
+	void *noexcept_new(size_t size)
+	{
+#if !defined(_CXXRT_NO_EXCEPTIONS)
+	try
+	{
+		return New(size);
+	} catch (...)
+	{
+		// nothrow operator new should return NULL in case of
+		// std::bad_alloc exception in new handler
+		return nullptr;
+	}
+#else
+	return New(size);
+#endif
+	}
+}
+
 
 __attribute__((weak))
 void* operator new(size_t size) BADALLOC
@@ -113,17 +139,7 @@ void* operator new(size_t size) BADALLOC
 __attribute__((weak))
 void* operator new(size_t size, const std::nothrow_t &) NOEXCEPT
 {
-#if !defined(_CXXRT_NO_EXCEPTIONS)
-	try {
-		return :: operator new(size);
-	} catch (...) {
-		// nothrow operator new should return NULL in case of
-		// std::bad_alloc exception in new handler
-		return NULL;
-	}
-#else
-	return :: operator new(size);
-#endif
+	return noexcept_new<::operator new>(size);
 }
 
 
@@ -144,17 +160,7 @@ void * operator new[](size_t size) BADALLOC
 __attribute__((weak))
 void * operator new[](size_t size, const std::nothrow_t &) NOEXCEPT
 {
-#if !defined(_CXXRT_NO_EXCEPTIONS)
-	try {
-		return ::operator new[](size);
-	} catch (...) {
-		// nothrow operator new should return NULL in case of
-		// std::bad_alloc exception in new handler
-		return NULL;
-	}
-#else
-	return ::operator new[](size);
-#endif
+	return noexcept_new<::operator new[]>(size);
 }
 
 
