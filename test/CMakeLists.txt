@@ -16,6 +16,7 @@ endif()
 option(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT "Compare tests with system output" ON)
 if(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT)
     add_executable(system-test ${CXXTEST_SOURCES})
+    set_property(TARGET system-test PROPERTY CXX_STANDARD 11)
 
     # Generating expected output with system-test
     add_custom_target(test-expected-output ALL
@@ -56,6 +57,7 @@ endfunction()
 if(NOT NO_STATIC_TEST)
     add_executable(cxxrt-test-static ${CXXTEST_SOURCES})
     set_property(TARGET cxxrt-test-static PROPERTY LINK_FLAGS "-nodefaultlibs -static")
+    set_property(TARGET cxxrt-test-static PROPERTY CXX_STANDARD 11)
     target_link_libraries(cxxrt-test-static cxxrt-static pthread ${CMAKE_DL_LIBS} c ${STATIC_LIB_DEPS})
     add_cxxrt_test("cxxrt-test-static")
 endif()
@@ -67,6 +69,7 @@ endif()
 
 add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
 set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
+set_property(TARGET cxxrt-test-shared PROPERTY CXX_STANDARD 11)
 target_link_libraries(cxxrt-test-shared cxxrt-shared pthread ${CMAKE_DL_LIBS} c ${SHARED_LIB_DEPS})
 add_cxxrt_test("cxxrt-test-shared")
 
