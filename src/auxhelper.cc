@@ -41,7 +41,11 @@
  */
 extern "C" void __cxa_bad_cast()
 {
+#if !defined(_CXXRT_NO_EXCEPTIONS)
     throw std::bad_cast();
+#else
+    abort();
+#endif
 }
 
 /**
@@ -51,7 +55,11 @@ extern "C" void __cxa_bad_cast()
  */
 extern "C" void __cxa_bad_typeid()
 {
+#if !defined(_CXXRT_NO_EXCEPTIONS)
     throw std::bad_typeid();
+#else
+    abort();
+#endif
 }
 
 /**
@@ -78,5 +86,9 @@ extern "C" void __cxa_deleted_virtual()
 
 extern "C" void __cxa_throw_bad_array_new_length()
 {
-	throw std::bad_array_new_length();
+#if !defined(_CXXRT_NO_EXCEPTIONS)
+    throw std::bad_array_new_length();
+#else
+    abort();
+#endif
 }

@@ -52,7 +52,9 @@ int main(int argc, char **argv)
 
 	test_type_info();
 	test_guards();
+#if !defined(_CXXRT_NO_EXCEPTIONS)
 	test_exceptions();
+#endif
 	test_demangle();
 	return 0;
 }
