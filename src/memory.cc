@@ -139,7 +139,7 @@ void* operator new(size_t size) BADALLOC
 __attribute__((weak))
 void* operator new(size_t size, const std::nothrow_t &) NOEXCEPT
 {
-	return noexcept_new<::operator new>(size);
+	return noexcept_new<(::operator new)>(size);
 }
 
 
@@ -160,7 +160,7 @@ void * operator new[](size_t size) BADALLOC
 __attribute__((weak))
 void * operator new[](size_t size, const std::nothrow_t &) NOEXCEPT
 {
-	return noexcept_new<::operator new[]>(size);
+	return noexcept_new<(::operator new[])>(size);
 }
 
 

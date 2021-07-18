@@ -1,0 +1,80 @@
+name: Libcxxrt CI
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  # Run FreeBSD testing using the vmactions action that runs FreeBSD in a VM on
+  # the macOS runners.
+  freebsd:
+    strategy:
+      matrix:
+        build-type: [ Debug, Release ]
+    runs-on: macos-latest
+    name: Test in FreeBSD
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test in FreeBSD
+      id: test
+      uses: vmactions/freebsd-vm@v0.1.5
+      with:
+        usesh: true
+        prepare: pkg install -y cmake ninja
+        run: |
+          cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.strategy.build-type}} -DBUILD_TESTS=ON COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT=OFF -G Ninja
+          cd ${{github.workspace}}/build
+          NINJA_STATUS="%p [%f:%s/%t] %o/s, %es" ninja
+          ctest --output-on-failure
+  # Linux and macOS jobs are native and use the same pipeline.
+  native:
+    strategy:
+      matrix:
+        config:
+        - {
+            name: "Ubuntu Release",
+            os: "ubuntu-latest",
+            build-type: Release,
+            dependencies: "sudo apt install ninja-build"
+          }
+        - {
+            name: "macOS Release",
+            os: "macos-latest",
+            build-type: Release,
+            dependencies: "brew update && brew install cmake ninja"
+          }
+        - {
+            name: "Ubuntu Debug",
+            os: "ubuntu-latest",
+            build-type: Debug,
+            dependencies: "sudo apt install ninja-build"
+          }
+        - {
+            name: "macOS Debug",
+            os: "macos-latest",
+            build-type: Debug,
+            dependencies: "brew update && brew install cmake ninja"
+          }
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.name }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install ninja
+      run: ${{ matrix.config.dependencies }}
+    - name: Configure CMake
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.config.build-type}} -DBUILD_TESTS=ON -DCOMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT=OFF -G Ninja
+    - name: Build
+      working-directory: ${{github.workspace}}/build
+      # Build your program with the given configuration
+      run: NINJA_STATUS="%p [%f:%s/%t] %o/s, %es" && ninja
+    - name: Test
+      working-directory: ${{github.workspace}}/build
+      # Build your program with the given configuration
+      run: ctest --output-on-failure

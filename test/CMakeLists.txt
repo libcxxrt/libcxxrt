@@ -41,26 +41,34 @@ else()
 endif()
 message(STATUS "static lib deps: ${STATIC_LIB_DEPS}")
 
+function(add_cxxrt_test NAME)
+    if (HAVE_EXPECTED_OUTPUT)
+        add_test(${NAME}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
+                 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${NAME}
+                 ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
+                 ${CMAKE_CURRENT_BINARY_DIR}/${NAME}-output.log)
+    else()
+        add_test(${NAME} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${NAME})
+    endif()
+endfunction()
+
 if(NOT NO_STATIC_TEST)
     add_executable(cxxrt-test-static ${CXXTEST_SOURCES})
     set_property(TARGET cxxrt-test-static PROPERTY LINK_FLAGS "-nodefaultlibs -static")
     target_link_libraries(cxxrt-test-static cxxrt-static pthread ${CMAKE_DL_LIBS} c ${STATIC_LIB_DEPS})
-    add_test(cxxrt-test-static-test
-             ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
-             ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-static
-             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
-             ${CMAKE_CURRENT_BINARY_DIR}/test-static-output.log)
+    add_cxxrt_test("cxxrt-test-static")
 endif()
 
-set(SHARED_LIB_DEPS gcc_s)
+if (APPLE)
+else()
+    set(SHARED_LIB_DEPS gcc_s)
+endif()
+
 add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
 set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
 target_link_libraries(cxxrt-test-shared cxxrt-shared pthread ${CMAKE_DL_LIBS} c ${SHARED_LIB_DEPS})
-add_test(cxxrt-test-shared-test
-         ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
-         ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-shared
-         ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
-         ${CMAKE_CURRENT_BINARY_DIR}/test-shared-output.log)
+add_cxxrt_test("cxxrt-test-shared")
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
 if(NOT APPLE AND NOT CXXRT_NO_EXCEPTIONS)
@@ -105,11 +113,7 @@ if(TEST_LIBUNWIND AND NOT CXXRT_NO_EXCEPTIONS)
         target_link_libraries(cxxrt-test-libunwind-static cxxrt-static
                               ${LIBUNWIND_PATH}/libunwind.a pthread ${CMAKE_DL_LIBS} c ${STATIC_LIB_DEPS})
     endif()
-    add_test(cxxrt-test-libunwind-static-test
-             ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
-             ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-static
-             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
-             ${CMAKE_CURRENT_BINARY_DIR}/test-libunwind-static-output.log)
+    add_cxxrt_test("cxxrt-test-libunwind-static")
 
     add_executable(cxxrt-test-libunwind-shared ${CXXTEST_SOURCES})
     set_property(TARGET cxxrt-test-libunwind-shared PROPERTY LINK_FLAGS
@@ -117,11 +121,7 @@ if(TEST_LIBUNWIND AND NOT CXXRT_NO_EXCEPTIONS)
     target_link_libraries(cxxrt-test-libunwind-shared cxxrt-shared
                          ${LIBUNWIND_PATH}/libunwind.so  unwind pthread ${CMAKE_DL_LIBS} c)
 
-    add_test(cxxrt-test-libunwind-shared-test
-             ${CMAKE_CURRENT_SOURCE_DIR}/run_test.sh
-             ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/cxxrt-test-libunwind-shared
-             ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log
-             ${CMAKE_CURRENT_BINARY_DIR}/test-libunwind-shared-output.log)
+    add_cxxrt_test("cxxrt-test-libunwind-shared")
 
     if(TEST_VALGRIND)
         if (NOT NO_STATIC_TEST)
