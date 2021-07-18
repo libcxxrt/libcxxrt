@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 project(libcxxrt)
 
+set(CMAKE_CXX_STANDARD 11)
+
 enable_testing()
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
