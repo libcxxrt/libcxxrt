@@ -37,7 +37,7 @@ extern "C" void __cxa_rethrow_primary_exception(void* thrown_exception)
 {
 	if (NULL == thrown_exception) { return; }
 
-  std::terminate();
+	std::terminate();
 }
 
 extern "C" void *__cxa_current_primary_exception(void)
@@ -49,19 +49,19 @@ extern "C" void __cxa_increment_exception_refcount(void* thrown_exception)
 {
 	if (NULL == thrown_exception) { return; }
 
-  std::terminate();
+	std::terminate();
 }
 
 extern "C" void __cxa_decrement_exception_refcount(void* thrown_exception)
 {
 	if (NULL == thrown_exception) { return; }
 
-  std::terminate();
+	std::terminate();
 }
 
 namespace std
 {
-  /**
+	/**
 	 * Terminates the program.
 	 */
 	void terminate()
