@@ -1,5 +1,5 @@
 /* 
- * Copyright 2010-2011 PathScale, Inc. All rights reserved.
+ * Copyright 2021 Microsoft. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,53 +24,11 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdlib.h>
-
 namespace std
 {
-	// Forward declaration of standard library terminate() function used to
-	// abort execution.
-	void terminate(void);
-}
-
-extern "C" void __cxa_rethrow_primary_exception(void* thrown_exception)
-{
-	if (NULL == thrown_exception) { return; }
-
-	std::terminate();
-}
-
-extern "C" void *__cxa_current_primary_exception(void)
-{
-	return NULL;
-}
-
-extern "C" void __cxa_increment_exception_refcount(void* thrown_exception)
-{
-	if (NULL == thrown_exception) { return; }
-
-	std::terminate();
-}
-
-extern "C" void __cxa_decrement_exception_refcount(void* thrown_exception)
-{
-	if (NULL == thrown_exception) { return; }
-
-	std::terminate();
-}
-
-namespace std
-{
-	/**
-	 * Terminates the program.
-	 */
-	void terminate()
-	{
-		abort();
-	}
 	/**
 	 * Returns whether there are any exceptions currently being thrown that
-	 * have not been caught.  This can occur inside a nested catch statement.
+	 * have not been caught. Without exception support this is always false.
 	 */
 	bool uncaught_exception() throw()
 	{
@@ -78,7 +36,7 @@ namespace std
 	}
 	/**
 	 * Returns the number of exceptions currently being thrown that have not
-	 * been caught.  This can occur inside a nested catch statement.
+	 * been caught. Without exception support this is always 0.
 	 */
 	int uncaught_exceptions() throw()
 	{
