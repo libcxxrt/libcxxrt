@@ -48,7 +48,7 @@ jobs:
             name: "macOS Release",
             os: "macos-latest",
             build-type: Release,
-            dependencies: "brew update && brew install cmake ninja"
+            dependencies: "rm -f /usr/local/bin/2to3 ; brew update && brew install cmake ninja"
           }
         - {
             name: "Ubuntu Debug",
@@ -60,7 +60,7 @@ jobs:
             name: "macOS Debug",
             os: "macos-latest",
             build-type: Debug,
-            dependencies: "brew update && brew install cmake ninja"
+            dependencies: "rm -f /usr/local/bin/2to3 ; brew update && brew install cmake ninja"
           }
     runs-on: ${{ matrix.config.os }}
     name: ${{ matrix.config.name }}

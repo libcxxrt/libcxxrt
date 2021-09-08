@@ -2,6 +2,7 @@
 set(CXXRT_SOURCES
     dynamic_cast.cc
     guard.cc
+    stdexcept.cc
     typeinfo.cc
     memory.cc
     auxhelper.cc
@@ -12,7 +13,11 @@ if (NOT CXXRT_NO_EXCEPTIONS)
 set(CXXRT_SOURCES
     ${CXXRT_SOURCES}
     exception.cc
-    stdexcept.cc
+   )
+else()
+set(CXXRT_SOURCES
+    ${CXXRT_SOURCES}
+    noexception.cc
    )
 endif()
 
