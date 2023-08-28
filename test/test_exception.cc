@@ -403,11 +403,15 @@ void test_exception_ptr_direct_init()
 			abort();
 		}
 
+		bool exception_caught = false;
 		try {
 			RethrowException(eptr);
 		} catch (const Derived&) {
+			exception_caught = true;
 		} catch (...) {
-			// Previous catch block should've caught the exception
+		}
+
+		if (!exception_caught) {
 			abort();
 		}
 	}
