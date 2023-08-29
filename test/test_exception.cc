@@ -5,6 +5,8 @@
 #include <stdint.h>
 
 #include <exception>
+#include <typeinfo>
+#include <new>
 
 #define fprintf(...)
 
@@ -325,6 +327,9 @@ void test_uncaught_exceptions()
 extern "C"
 {
 	struct __cxa_exception;
+
+	void __cxa_free_exception(void *thrown_exception) throw();
+	void *__cxa_allocate_exception(size_t thrown_size) throw();
 
 	void __cxa_increment_exception_refcount(void* thrown_exception);
 	void __cxa_decrement_exception_refcount(void* thrown_exception);
