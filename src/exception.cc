@@ -791,6 +791,21 @@ static void throw_exception(__cxa_exception *ex)
 	report_failure(err, ex);
 }
 
+extern "C" __cxa_exception *__cxa_init_primary_exception(
+		void *object, std::type_info* tinfo, void (*dest)(void *)) {
+	__cxa_exception *ex = reinterpret_cast<__cxa_exception*>(object) - 1;
+
+	ex->referenceCount = 0;
+	ex->exceptionType = tinfo;
+
+	ex->exceptionDestructor = dest;
+
+	ex->unwindHeader.exception_class = exception_class;
+	ex->unwindHeader.exception_cleanup = exception_cleanup;
+
+	return ex;
+}
+
 
 /**
  * ABI function for throwing an exception.  Takes the object to be thrown (the
@@ -801,15 +816,8 @@ extern "C" void __cxa_throw(void *thrown_exception,
                             std::type_info *tinfo,
                             void(*dest)(void*))
 {
-	__cxa_exception *ex = reinterpret_cast<__cxa_exception*>(thrown_exception) - 1;
-
+	__cxa_exception *ex = __cxa_init_primary_exception(thrown_exception, tinfo, dest);
 	ex->referenceCount = 1;
-	ex->exceptionType = tinfo;
-	
-	ex->exceptionDestructor = dest;
-	
-	ex->unwindHeader.exception_class = exception_class;
-	ex->unwindHeader.exception_cleanup = exception_cleanup;
 
 	throw_exception(ex);
 }
