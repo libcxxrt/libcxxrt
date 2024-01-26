@@ -76,7 +76,7 @@ typedef void (*terminate_handler)();
  */
 struct __cxa_exception
 {
-#if __LP64__
+#ifdef __LP64__
 	/**
 	 * Now _Unwind_Exception is marked with __attribute__((aligned)), which
 	 * implies __cxa_exception is also aligned.  Insert padding in the
@@ -154,7 +154,7 @@ struct __cxa_exception
 	 * need to adjust the thrown pointer to make it all work correctly.
 	 */
 	void *adjustedPtr;
-#if !__LP64__
+#ifndef __LP64__
 	/**
 	 * Reference count.  Used to support the C++11 exception_ptr class.  This
 	 * is prepended to the structure in 64-bit mode and squeezed in to the

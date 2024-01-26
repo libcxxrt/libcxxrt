@@ -198,7 +198,7 @@ struct __cxa_thread_info
  */
 struct __cxa_dependent_exception
 {
-#if __LP64__
+#ifdef __LP64__
 	void *reserve;
 	void *primaryException;
 #endif
@@ -217,7 +217,7 @@ struct __cxa_dependent_exception
 	const char *languageSpecificData;
 	void *catchTemp;
 	void *adjustedPtr;
-#if !__LP64__
+#ifndef __LP64__
 	void *primaryException;
 #endif
 	_Unwind_Exception unwindHeader;
