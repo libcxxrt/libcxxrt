@@ -10,14 +10,14 @@ extern "C"
 {
 	struct __cxa_exception;
 
-	void __cxa_free_exception(void *thrown_exception) throw();
-	void *__cxa_allocate_exception(size_t thrown_size) throw();
+	void __cxa_free_exception(void *thrown_exception) _LIBCXXRT_NOEXCEPT;
+	void *__cxa_allocate_exception(size_t thrown_size) _LIBCXXRT_NOEXCEPT;
 
 	void __cxa_increment_exception_refcount(void* thrown_exception);
 	void __cxa_decrement_exception_refcount(void* thrown_exception);
 
 	__cxa_exception *__cxa_init_primary_exception(
-		void *object, std::type_info* tinfo, void (*dest)(void *)) throw();
+		void *object, std::type_info* tinfo, void (*dest)(void *)) _LIBCXXRT_NOEXCEPT;
 
 	void __cxa_rethrow_primary_exception(void* thrown_exception);
 	void *__cxa_current_primary_exception();
