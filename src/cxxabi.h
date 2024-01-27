@@ -41,8 +41,15 @@ namespace std
  */
 
 #ifdef __cplusplus
+#if __cplusplus < 201103L
+#define _LIBCXXRT_NOEXCEPT throw()
+#else
+#define _LIBCXXRT_NOEXCEPT noexcept
+#endif
 namespace __cxxabiv1 {
 extern "C" {
+#else
+#define _LIBCXXRT_NOEXCEPT
 #endif
 /**
  * Function type to call when an unexpected exception is encountered.
@@ -204,12 +211,12 @@ __cxa_eh_globals *__cxa_get_globals_fast(void);
 std::type_info * __cxa_current_exception_type();
 
 
-void *__cxa_allocate_exception(size_t thrown_size) throw();
+void *__cxa_allocate_exception(size_t thrown_size) _LIBCXXRT_NOEXCEPT;
 
-void __cxa_free_exception(void* thrown_exception) throw();
+void __cxa_free_exception(void* thrown_exception) _LIBCXXRT_NOEXCEPT;
 
 __cxa_exception *__cxa_init_primary_exception(
-		void *object, std::type_info* tinfo, void (*dest)(void *)) throw();
+		void *object, std::type_info* tinfo, void (*dest)(void *)) _LIBCXXRT_NOEXCEPT;
 
 /**
  * Throws an exception returned by __cxa_current_primary_exception().  This
