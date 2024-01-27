@@ -5,19 +5,33 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#if __cplusplus < 201103L
+#define NOEXCEPT throw()
+#else
+#define NOEXCEPT noexcept
+#endif
+
+#ifdef __GLIBCXX__
+// libstdc++ uses a different cxa_exception struct for refcounting, and returns
+// that from __cxa_init_primary_exception.
+#define CXA_EXCEPTION __cxa_refcounted_exception
+#else
+#define CXA_EXCEPTION __cxa_exception
+#endif
+
 namespace __cxxabiv1 {
 extern "C"
 {
-	struct __cxa_exception;
+	struct CXA_EXCEPTION;
 
-	void __cxa_free_exception(void *thrown_exception) _LIBCXXRT_NOEXCEPT;
-	void *__cxa_allocate_exception(size_t thrown_size) _LIBCXXRT_NOEXCEPT;
+	void __cxa_free_exception(void *thrown_exception) NOEXCEPT;
+	void *__cxa_allocate_exception(size_t thrown_size) NOEXCEPT;
 
 	void __cxa_increment_exception_refcount(void* thrown_exception);
 	void __cxa_decrement_exception_refcount(void* thrown_exception);
 
-	__cxa_exception *__cxa_init_primary_exception(
-		void *object, std::type_info* tinfo, void (*dest)(void *)) _LIBCXXRT_NOEXCEPT;
+	CXA_EXCEPTION *__cxa_init_primary_exception(
+		void *object, std::type_info* tinfo, void (*dest)(void *)) NOEXCEPT;
 
 	void __cxa_rethrow_primary_exception(void* thrown_exception);
 	void *__cxa_current_primary_exception();

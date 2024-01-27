@@ -1,5 +1,5 @@
 #include "test.h"
-#include "cxxabi.h"
+#include "unwind.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -7,6 +7,12 @@
 #include <exception>
 
 #define fprintf(...)
+
+#if __cplusplus < 201103L
+#define THROW(...) throw(__VA_ARGS__)
+#else
+#define THROW(...)
+#endif
 
 void log_cleanup(void* ignored)
 {
@@ -75,7 +81,7 @@ int inner(int i)
 	return -1;
 }
 
-int outer(int i) throw(float, int, foo, non_pod)
+int outer(int i) THROW(float, int, foo, non_pod)
 {
 	//CLEANUP
 	inner(i);
