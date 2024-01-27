@@ -1,0 +1,26 @@
+libcxxrt_freebsd_task:
+  matrix:
+  - freebsd_instance:
+     image_family: freebsd-13-2
+  - freebsd_instance:
+     image_family: freebsd-15-0-snap
+  - freebsd_instance:
+     image_family: freebsd-14-0
+
+  install_script: pkg install -y cmake ninja
+
+  matrix:
+    - name: Configure (Debug)
+      configure_script: |
+        mkdir Build
+        cd Build
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+    - name: Configure (Release)
+      configure_script: |
+        mkdir Build
+        cd Build
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+
+  build_script: cd Build && NINJA_STATUS="%p [%f:%s/%t] %o/s, %es" ninja
+
+  test_script: cd Build && ctest  --output-on-failure
