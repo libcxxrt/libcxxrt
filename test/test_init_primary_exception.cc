@@ -110,3 +110,4 @@ void test_init_primary_exception(void)
 		abort();
 	}
 }
+
