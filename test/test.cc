@@ -34,6 +34,7 @@ static void __attribute__((constructor)) init(void)
 
 void test_type_info(void);
 void test_exceptions();
+void test_init_primary_exception(void);
 void test_guards(void);
 void test_demangle(void);
 int main(int argc, char **argv)
@@ -54,6 +55,7 @@ int main(int argc, char **argv)
 	test_guards();
 #if !defined(_CXXRT_NO_EXCEPTIONS)
 	test_exceptions();
+	test_init_primary_exception();
 #endif
 	test_demangle();
 	return 0;

@@ -9,6 +9,7 @@ if (NOT CXXRT_NO_EXCEPTIONS)
 set(CXXTEST_SOURCES
     ${CXXTEST_SOURCES}
     test_exception.cc
+    test_init_primary_exception.cc
    )
 endif()
 
