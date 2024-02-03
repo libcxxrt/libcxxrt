@@ -78,6 +78,7 @@ endif()
 add_executable(cxxrt-test-shared ${CXXTEST_SOURCES})
 set_property(TARGET cxxrt-test-shared PROPERTY LINK_FLAGS -nodefaultlibs)
 set_property(TARGET cxxrt-test-shared PROPERTY CXX_STANDARD 11)
+target_compile_definitions(cxxrt-test-shared PRIVATE "TEST_INIT_PRIMARY_EXCEPTION")
 target_link_libraries(cxxrt-test-shared cxxrt-shared pthread ${CMAKE_DL_LIBS} c ${SHARED_LIB_DEPS})
 add_cxxrt_test("cxxrt-test-shared")
 
