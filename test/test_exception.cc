@@ -398,7 +398,7 @@ struct Derived final : Base
 	}
 };
 
-void test_exception_ptr_direct_init()
+inline void test_exception_ptr_direct_init()
 {
 	{
 		ExceptionPtr eptr = MakeExceptionPtr(Derived());
@@ -478,7 +478,9 @@ void test_exceptions(void)
 	test_rethrown_uncaught_exception();
 	test_rethrown_uncaught_foreign_exception();
 	test_uncaught_exceptions();
+#ifdef TEST_INIT_PRIMARY_EXCEPTION
 	test_exception_ptr_direct_init();
+#endif
 
 
 	//printf("Test: %s\n",

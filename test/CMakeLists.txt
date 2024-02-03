@@ -15,15 +15,21 @@ endif()
 
 option(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT "Compare tests with system output" ON)
 if(COMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT)
+    try_compile(TEST_INIT_PRIMARY_EXCEPTION "${CMAKE_CURRENT_BINARY_DIR}/try" "${CMAKE_CURRENT_SOURCE_DIR}/try_compile_init_primary_exception.cc")
     add_executable(system-test ${CXXTEST_SOURCES})
     set_property(TARGET system-test PROPERTY CXX_STANDARD 11)
+    if (TEST_INIT_PRIMARY_EXCEPTION)
+        target_compile_definitions(system-test PRIVATE "TEST_INIT_PRIMARY_EXCEPTION")
+        set(HAVE_EXPECTED_OUTPUT TRUE)
+    else ()
+        set(HAVE_EXPECTED_OUTPUT FALSE)
+    endif()
     target_link_libraries(system-test pthread)
 
     # Generating expected output with system-test
     add_custom_target(test-expected-output ALL
                       COMMAND system-test > ${CMAKE_CURRENT_BINARY_DIR}/expected_output.log 2>&1
                       DEPENDS system-test)
-    set(HAVE_EXPECTED_OUTPUT TRUE)
 else()
     set(HAVE_EXPECTED_OUTPUT FALSE)
 endif()
