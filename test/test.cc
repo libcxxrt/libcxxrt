@@ -55,7 +55,9 @@ int main(int argc, char **argv)
 	test_guards();
 #if !defined(_CXXRT_NO_EXCEPTIONS)
 	test_exceptions();
+#ifdef TEST_INIT_PRIMARY_EXCEPTION
 	test_init_primary_exception();
+#endif
 #endif
 	test_demangle();
 	return 0;
