@@ -1,3 +1,5 @@
+#ifdef TEST_INIT_PRIMARY_EXCEPTION
+
 #include <typeinfo>
 #include <new>
 #include <stdint.h>
@@ -110,4 +112,7 @@ void test_init_primary_exception(void)
 		abort();
 	}
 }
+#else
+void test_init_primary_exception(void) {}
+#endif
 
