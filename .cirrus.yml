@@ -7,7 +7,7 @@ libcxxrt_freebsd_task:
   - freebsd_instance:
      image_family: freebsd-14-0
 
-  install_script: pkg install -y cmake ninja
+  install_script: uname -a && pkg install -y cmake ninja
 
   matrix:
     - name: Configure (Debug)
