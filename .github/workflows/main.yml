@@ -56,4 +56,4 @@ jobs:
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Build your program with the given configuration
-      run: ctest --output-on-failure
+      run: ctest --output-on-failure --verbose
