@@ -23,4 +23,4 @@ libcxxrt_freebsd_task:
 
   build_script: cd Build && NINJA_STATUS="%p [%f:%s/%t] %o/s, %es" ninja
 
-  test_script: cd Build && ctest  --output-on-failure
+  test_script: cd Build && ctest  --output-on-failure --verbose
