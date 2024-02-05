@@ -27,6 +27,7 @@ thread_local bool mainThread = false;
 void *init_static_race(void*);
 
 static int instances = 0; 
+static pthread_t thr;
 struct static_slow_struct
 {
 	int field;
@@ -34,7 +35,6 @@ struct static_slow_struct
 	{
 		if (mainThread)
 		{
-			pthread_t thr;
 			// See if another thread can make progress while we hold the lock.
 			// This will happen if we get the lock and init bytes the wrong way
 			// around.
@@ -61,5 +61,6 @@ void test_guards(void)
 	TEST(static_count == 2, "Each static only initialized once");
 	mainThread = true;
 	init_static_race(nullptr);
+	pthread_join(thr, nullptr);
 	TEST(instances == 1, "Two threads both tried to initialise a static");
 }
