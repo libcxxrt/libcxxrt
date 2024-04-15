@@ -304,9 +304,9 @@ using namespace ABI_NAMESPACE;
 
 
 /** The global termination handler. */
-constinit static atomic<terminate_handler> terminateHandler = abort;
+static atomic<terminate_handler> terminateHandler = abort;
 /** The global unexpected exception handler. */
-constinit static atomic<unexpected_handler> unexpectedHandler = std::terminate;
+static atomic<unexpected_handler> unexpectedHandler = std::terminate;
 
 /** Key used for thread-local data. */
 static pthread_key_t eh_key;

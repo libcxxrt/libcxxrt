@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(libcxxrt)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 11)
 
 enable_testing()
 
