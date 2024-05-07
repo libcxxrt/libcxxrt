@@ -152,3 +152,5 @@ if(TEST_LIBUNWIND AND NOT CXXRT_NO_EXCEPTIONS)
     endif()
 endif()
 
+add_executable(cxxrt-test-demangle demangle_test.c ../src/libelftc_dem_gnu3.c)
+add_cxxrt_test("cxxrt-test-demangle")
