@@ -299,6 +299,21 @@ vector_str_pop(struct vector_str *v)
 }
 
 /**
+ * @brief Implements strlcpy() without result.
+ */
+static void
+copy_string(char *dst, const char *src, size_t dsize)
+{
+	size_t remain;
+	if ((remain = dsize))
+		while (--remain)
+			if (!(*dst++ = *src++))
+				break;
+	if (!remain && dsize)
+                *dst = 0;
+}
+
+/**
  * @brief Push back string to vector.
  * @return false at failed, true at success.
  */
@@ -315,7 +330,7 @@ vector_str_push(struct vector_str *v, const char *str, size_t len)
 	if ((v->container[v->size] = malloc(sizeof(char) * (len + 1))) == NULL)
 		return (false);
 
-	strlcpy(v->container[v->size], str, len + 1);
+	copy_string(v->container[v->size], str, len + 1);
 
 	++v->size;
 
