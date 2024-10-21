@@ -8,7 +8,7 @@
 
 #define fprintf(...)
 
-#if __cplusplus < 201103L
+#if __cplusplus < 201703L
 #define LIBCXXRT_TEST_EXCEPTION_SPEC
 #endif
 
