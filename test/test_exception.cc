@@ -9,6 +9,10 @@
 #define fprintf(...)
 
 #if __cplusplus < 201103L
+#define LIBCXXRT_TEST_EXCEPTION_SPEC
+#endif
+
+#ifdef LIBCXXRT_TEST_EXCEPTION_SPEC
 #define THROW(...) throw(__VA_ARGS__)
 #else
 #define THROW(...)
@@ -344,7 +348,9 @@ void test_exceptions(void)
 		TEST(violations == 1, "Exactly one exception spec violation");
 	}
 	catch (int64_t i) {
+#ifdef LIBCXXRT_TEST_EXCEPTION_SPEC
 		TEST(0, "Caught int64_t, but that violates an exception spec");
+#endif
 	}
 	int a;
 	try {
