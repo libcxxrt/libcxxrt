@@ -301,6 +301,10 @@ namespace std
 
 using namespace ABI_NAMESPACE;
 
+#ifdef LIBCXXRT_NO_DEFAULT_TERMINATE_DIAGNOSTICS
+/** The global termination handler. */
+static atomic<terminate_handler> terminateHandler = abort;
+#else
 /**
  * Callback function used with _Unwind_Backtrace().
  *
@@ -364,6 +368,8 @@ static void terminate_with_diagnostics() {
 
 /** The global termination handler. */
 static atomic<terminate_handler> terminateHandler = terminate_with_diagnostics;
+#endif
+
 /** The global unexpected exception handler. */
 static atomic<unexpected_handler> unexpectedHandler = std::terminate;
 
