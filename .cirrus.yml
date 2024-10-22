@@ -14,12 +14,14 @@ libcxxrt_freebsd_task:
       configure_script: |
         mkdir Build
         cd Build
-        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++  -DBUILD_TESTS=ON
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DBUILD_TESTS=ON -DCOMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT=OFF
     - name: Configure (Release)
       configure_script: |
         mkdir Build
         cd Build
-        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++  -DBUILD_TESTS=ON
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DBUILD_TESTS=ON -DCOMPARE_TEST_OUTPUT_TO_SYSTEM_OUTPUT=OFF
 
   build_script: cd Build && NINJA_STATUS="%p [%f:%s/%t] %o/s, %es" ninja
 
