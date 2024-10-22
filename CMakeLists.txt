@@ -8,6 +8,9 @@ enable_testing()
 option(LIBCXXRT_NO_EMERGENCY_BUFFERS
        "Disable emergency buffers when allocation fails throwing an exception (see section 3.3.1 of the Itanium ABI specification)"
        OFF)
+option(LIBCXXRT_NO_DEFAULT_TERMINATE_DIAGNOSTICS
+       "Disable stack unwinding and diagnostic information logged by the default std::terminate handler"
+       OFF)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib")
