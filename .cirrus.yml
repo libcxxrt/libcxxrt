@@ -5,7 +5,7 @@ libcxxrt_freebsd_task:
   - freebsd_instance:
      image_family: freebsd-15-0-snap
   - freebsd_instance:
-     image_family: freebsd-14-1
+     image_family: freebsd-14-2
 
   install_script: uname -a && pkg install -y cmake ninja
 
