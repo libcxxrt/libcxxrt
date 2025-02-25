@@ -337,7 +337,7 @@ static void terminate_with_diagnostics() {
 	if (ex != nullptr) {
 		fprintf(stderr, "Terminating due to uncaught exception %p", static_cast<void*>(ex));
 		ex = realExceptionFromException(ex);
-		static const __class_type_info *e_ti =
+		const __class_type_info *e_ti =
 			static_cast<const __class_type_info*>(&typeid(std::exception));
 		const __class_type_info *throw_ti =
 			dynamic_cast<const __class_type_info*>(ex->exceptionType);
