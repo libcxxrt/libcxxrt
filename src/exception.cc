@@ -334,35 +334,37 @@ static void terminate_with_diagnostics() {
 	__cxa_eh_globals *globals = __cxa_get_globals();
 	__cxa_exception *ex = globals->caughtExceptions;
 
-	if (ex != nullptr) {
-		fprintf(stderr, "Terminating due to uncaught exception %p", static_cast<void*>(ex));
-		ex = realExceptionFromException(ex);
-		const __class_type_info *e_ti =
-			static_cast<const __class_type_info*>(&typeid(std::exception));
-		const __class_type_info *throw_ti =
-			dynamic_cast<const __class_type_info*>(ex->exceptionType);
-		if (throw_ti)
+	if (!ex)
+	{
+		abort();
+	}
+	
+	fprintf(stderr, "Terminating due to uncaught exception %p", static_cast<void*>(ex));
+	ex = realExceptionFromException(ex);
+	const __class_type_info *e_ti =
+		static_cast<const __class_type_info*>(&typeid(std::exception));
+	const __class_type_info *throw_ti =
+		dynamic_cast<const __class_type_info*>(ex->exceptionType);
+	if (throw_ti)
+	{
+		std::exception *e =
+			static_cast<std::exception*>(e_ti->cast_to(static_cast<void*>(ex+1), throw_ti));
+		if (e)
 		{
-			std::exception *e =
-				static_cast<std::exception*>(e_ti->cast_to(static_cast<void*>(ex+1), throw_ti));
-			if (e)
-			{
-				fprintf(stderr, " '%s'", e->what());
-			}
+			fprintf(stderr, " '%s'", e->what());
 		}
-
-		size_t bufferSize = 128;
-		char *demangled = static_cast<char*>(malloc(bufferSize));
-		const char *mangled = ex->exceptionType->name();
-		int status;
-		demangled = __cxa_demangle(mangled, demangled, &bufferSize, &status);
-		fprintf(stderr, " of type %s\n",
-			status == 0 ? demangled : mangled);
-		if (status == 0) { free(demangled); }
-
-		_Unwind_Backtrace(trace, 0);
 	}
 
+	size_t bufferSize = 128;
+	char *demangled = static_cast<char*>(malloc(bufferSize));
+	const char *mangled = ex->exceptionType->name();
+	int status;
+	demangled = __cxa_demangle(mangled, demangled, &bufferSize, &status);
+	fprintf(stderr, " of type %s\n",
+		status == 0 ? demangled : mangled);
+	if (status == 0) { free(demangled); }
+
+	_Unwind_Backtrace(trace, 0);
 	abort();
 }
 
