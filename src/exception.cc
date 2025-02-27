@@ -356,8 +356,7 @@ static void terminate_with_diagnostics() {
 		const char *mangled = ex->exceptionType->name();
 		int status;
 		demangled = __cxa_demangle(mangled, demangled, &bufferSize, &status);
-		fprintf(stderr, " of type %s\n",
-			status == 0 ? demangled : mangled);
+		fprintf(stderr, " of type %s\n", status == 0 ? demangled : mangled);
 		if (status == 0) { free(demangled); }
 
 		_Unwind_Backtrace(trace, 0);
